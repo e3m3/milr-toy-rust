@@ -1,7 +1,7 @@
 # Copyright 2024, Giordano Salvador
 # SPDX-License-Identifier: BSD-3-Clause
 
-FROM registry.fedoraproject.org/fedora:40
+FROM registry.fedoraproject.org/fedora:41
 
 LABEL maintainer="Giordano Salvador <73959795+e3m3@users.noreply.github.com>"
 USER root
@@ -14,7 +14,7 @@ ENV PROJECT_DIR=${HOME}/project
 ENV CARGO_ENV=${HOME}/.cargo/env
 
 RUN dnf upgrade -y
-RUN dnf install -y libstdc++-static gcc llvm llvm-devel clang rustup python3-lit
+RUN dnf install -y libstdc++-static gcc llvm llvm-devel clang mlir mlir-devel rustup python3-lit
 RUN dnf clean -y all
 
 ENV RUST_CHANNEL=stable
