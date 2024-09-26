@@ -17,7 +17,7 @@ Baseline for the MLP (Multi-Level Program) language (using file extension ".mlp"
 
 ```text
 ident           ::= letter+ (letter | digit)*
-number          ::= '.'? digit+ | (`0x` hex_digit+) | digit+ '.' digit*
+number          ::= `.`? digit+ | (`0x` hex_digit+) | digit+ `.` digit*
 digit           ::= [0-9]
 hex_digit       ::= [a-fA-F0-9]
 letter          ::= letter_lower | letter_upper | `_`
@@ -85,11 +85,11 @@ text            ::=
 
 *   rust-2021
 
-*   llvm-18 and llvm-sys (or llvm version matching llvm-sys)
+*   llvm-19 and llvm-sys (or llvm version matching llvm-sys)
 
-*   llvm-18 and mlir-sys (or llvm version matching mlir-sys)
+*   llvm-19 and mlir-sys (or llvm version matching mlir-sys)
 
-*   clang-18 (for executables and `-C|--c-main` flags)
+*   clang-19 (for executables and `-C|--c-main` flags)
 
 *   python3-lit, FileCheck (for testing)
 
