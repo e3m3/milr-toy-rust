@@ -3,9 +3,13 @@
 // RUN: not @mlpc --verbose --lex -e "0.001."   2>&1 | @filecheck %s --check-prefix=CHECK_C
 // RUN: not @mlpc --verbose --lex -e "0.001.26" 2>&1 | @filecheck %s --check-prefix=CHECK_D
 // RUN: not @mlpc --verbose --lex -e "0.0a1"    2>&1 | @filecheck %s --check-prefix=CHECK_E
+// RUN: not @mlpc --verbose --lex -e "0.314e1"  2>&1 | @filecheck %s --check-prefix=CHECK_F
+// RUN: not @mlpc --verbose --lex -e "31.4e-1"  2>&1 | @filecheck %s --check-prefix=CHECK_G
 
 // CHECK_A: Invalid number '.'
 // CHECK_B: Found multiple '.' characters in number '0..'
 // CHECK_C: Found multiple '.' characters in number '0.001.'
 // CHECK_D: Found multiple '.' characters in number '0.001.26'
 // CHECK_E: Found invalid suffix 'a' for number in expression
+// CHECK_F: Found invalid suffix 'e' for number in expression
+// CHECK_G: Found invalid suffix 'e' for number in expression
