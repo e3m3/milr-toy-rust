@@ -1,0 +1,6 @@
+// RUN:     @mlpc -h 2>&1      | @filecheck %s
+// RUN:     @mlpc --help 2>&1  | @filecheck %s
+// RUN: not @mlpc 2>&1         | @filecheck %s --check-prefixes=CHECK_INPUT,CHECK
+
+// CHECK_INPUT: No input file/name specified!
+// CHECK:       usage: mlpc [OPTIONS] <INPUT>

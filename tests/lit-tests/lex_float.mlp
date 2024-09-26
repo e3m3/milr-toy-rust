@@ -1,0 +1,77 @@
+// RUN: @mlpc --verbose --lex -e "0."       2>&1 | @filecheck %s --check-prefix=CHECK_A
+// RUN: @mlpc --verbose --lex -e "1."       2>&1 | @filecheck %s --check-prefix=CHECK_B
+// RUN: @mlpc --verbose --lex -e "0.0"      2>&1 | @filecheck %s --check-prefix=CHECK_C
+// RUN: @mlpc --verbose --lex -e "1.0"      2>&1 | @filecheck %s --check-prefix=CHECK_D
+// RUN: @mlpc --verbose --lex -e "100.0134" 2>&1 | @filecheck %s --check-prefix=CHECK_E
+// RUN: @mlpc --verbose --lex -e "-0."      2>&1 | @filecheck %s --check-prefix=CHECK_F
+// RUN: @mlpc --verbose --lex -e "-1."      2>&1 | @filecheck %s --check-prefix=CHECK_G
+// RUN: @mlpc --verbose --lex -e ".02"      2>&1 | @filecheck %s --check-prefix=CHECK_H
+
+// CHECK_A: Processing input 'Expression:0.'
+// CHECK_A: Read 2 bytes from buffer at line 0
+// CHECK_A: Found char '0' in line 0 at pos 0
+// CHECK_A: Found char '.' in line 0 at pos 1
+// CHECK_A: Lexed token 'Number:0.'
+// CHECK_A: Lexed token 'Eoi:'
+
+// CHECK_B: Processing input 'Expression:1.'
+// CHECK_B: Read 2 bytes from buffer at line 0
+// CHECK_B: Found char '1' in line 0 at pos 0
+// CHECK_B: Found char '.' in line 0 at pos 1
+// CHECK_B: Lexed token 'Number:1.'
+// CHECK_B: Lexed token 'Eoi:'
+
+// CHECK_C: Processing input 'Expression:0.0'
+// CHECK_C: Read 3 bytes from buffer at line 0
+// CHECK_C: Found char '0' in line 0 at pos 0
+// CHECK_C: Found char '.' in line 0 at pos 1
+// CHECK_C: Found char '0' in line 0 at pos 2
+// CHECK_C: Lexed token 'Number:0.0'
+// CHECK_C: Lexed token 'Eoi:'
+
+// CHECK_D: Processing input 'Expression:1.0'
+// CHECK_D: Read 3 bytes from buffer at line 0
+// CHECK_D: Found char '1' in line 0 at pos 0
+// CHECK_D: Found char '.' in line 0 at pos 1
+// CHECK_D: Found char '0' in line 0 at pos 2
+// CHECK_D: Lexed token 'Number:1.0'
+// CHECK_D: Lexed token 'Eoi:'
+
+// CHECK_E: Processing input 'Expression:100.0134'
+// CHECK_E: Read 8 bytes from buffer at line 0
+// CHECK_E: Found char '1' in line 0 at pos 0
+// CHECK_E: Found char '0' in line 0 at pos 1
+// CHECK_E: Found char '0' in line 0 at pos 2
+// CHECK_E: Found char '.' in line 0 at pos 3
+// CHECK_E: Found char '0' in line 0 at pos 4
+// CHECK_E: Found char '1' in line 0 at pos 5
+// CHECK_E: Found char '3' in line 0 at pos 6
+// CHECK_E: Found char '4' in line 0 at pos 7
+// CHECK_E: Lexed token 'Number:100.0134'
+// CHECK_E: Lexed token 'Eoi:'
+
+// CHECK_F: Processing input 'Expression:-0.'
+// CHECK_F: Read 3 bytes from buffer at line 0
+// CHECK_F: Found char '-' in line 0 at pos 0
+// CHECK_F: Lexed token 'Minus:-'
+// CHECK_F: Found char '0' in line 0 at pos 1
+// CHECK_F: Found char '.' in line 0 at pos 2
+// CHECK_F: Lexed token 'Number:0.'
+// CHECK_F: Lexed token 'Eoi:'
+
+// CHECK_G: Processing input 'Expression:-1.'
+// CHECK_G: Read 3 bytes from buffer at line 0
+// CHECK_G: Found char '-' in line 0 at pos 0
+// CHECK_G: Lexed token 'Minus:-'
+// CHECK_G: Found char '1' in line 0 at pos 1
+// CHECK_G: Found char '.' in line 0 at pos 2
+// CHECK_G: Lexed token 'Number:1.'
+// CHECK_G: Lexed token 'Eoi:'
+
+// CHECK_H: Processing input 'Expression:.02'
+// CHECK_H: Read 3 bytes from buffer at line 0
+// CHECK_H: Found char '.' in line 0 at pos 0
+// CHECK_H: Found char '0' in line 0 at pos 1
+// CHECK_H: Found char '2' in line 0 at pos 2
+// CHECK_H: Lexed token 'Number:.02'
+// CHECK_H: Lexed token 'Eoi:'

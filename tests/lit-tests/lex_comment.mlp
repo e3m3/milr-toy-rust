@@ -1,0 +1,24 @@
+// RUN: @mlpc -v --lex -e "//"                          2>&1 | @filecheck %s --check-prefix=CHECK_A
+// RUN: @mlpc -v --lex -e "// comment"                  2>&1 | @filecheck %s --check-prefix=CHECK_B
+
+// CHECK_A: Processing input 'Expression://'
+// CHECK_A: Read 2 bytes from buffer at line 0
+// CHECK_A: Found char '/' in line 0 at pos 0
+// CHECK_A: Found char '/' in line 0 at pos 1
+// CHECK_A: Lexed token 'Comment://'
+// CHECK_A: Lexed token 'Eoi:'
+
+// CHECK_B: Processing input 'Expression:// comment'
+// CHECK_B: Read 10 bytes from buffer at line 0
+// CHECK_B: Found char '/' in line 0 at pos 0
+// CHECK_B: Found char '/' in line 0 at pos 1
+// CHECK_B: Found char ' ' in line 0 at pos 2
+// CHECK_B: Found char 'c' in line 0 at pos 3
+// CHECK_B: Found char 'o' in line 0 at pos 4
+// CHECK_B: Found char 'm' in line 0 at pos 5
+// CHECK_B: Found char 'm' in line 0 at pos 6
+// CHECK_B: Found char 'e' in line 0 at pos 7
+// CHECK_B: Found char 'n' in line 0 at pos 8
+// CHECK_B: Found char 't' in line 0 at pos 9
+// CHECK_B: Lexed token 'Comment:// comment'
+// CHECK_B: Lexed token 'Eoi:'

@@ -1,0 +1,5 @@
+// RUN: @mlpc --version 2>&1 | @filecheck %s
+
+// CHECK: Welcome to mlpc version v0.1.0
+// CHECK: // Copyright 2024, Giordano Salvador
+// CHECK: // SPDX-License-Identifier: BSD-3-Clause

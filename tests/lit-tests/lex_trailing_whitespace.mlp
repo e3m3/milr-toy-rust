@@ -1,0 +1,16 @@
+// RUN: @mlpc -v --lex -e "10 + 5  " 2>&1 | @filecheck %s --check-prefix=CHECK_A
+
+// CHECK_A: Processing input 'Expression:10 + 5  '
+// CHECK_A: Read 8 bytes from buffer at line 0
+// CHECK_A: Found char '1' in line 0 at pos 0
+// CHECK_A: Found char '0' in line 0 at pos 1
+// CHECK_A: Lexed token 'Number:10'
+// CHECK_A: Found char ' ' in line 0 at pos 2
+// CHECK_A: Found char '+' in line 0 at pos 3
+// CHECK_A: Found char ' ' in line 0 at pos 4
+// CHECK_A: Found char '5' in line 0 at pos 5
+// CHECK_A: Lexed token 'Number:5'
+// CHECK_A: Found char ' ' in line 0 at pos 6
+// CHECK_A: Found char ' ' in line 0 at pos 7
+// CHECK_A: Lexed token 'Eol:'
+// CHECK_A: Lexed token 'Eoi:'

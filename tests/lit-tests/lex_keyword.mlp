@@ -1,0 +1,56 @@
+// RUN: @mlpc --verbose --lex -e "def"       2>&1 | @filecheck %s --check-prefix=CHECK_A
+// RUN: @mlpc --verbose --lex -e "print"     2>&1 | @filecheck %s --check-prefix=CHECK_B
+// RUN: @mlpc --verbose --lex -e "return"    2>&1 | @filecheck %s --check-prefix=CHECK_C
+// RUN: @mlpc --verbose --lex -e "transpose" 2>&1 | @filecheck %s --check-prefix=CHECK_D
+// RUN: @mlpc --verbose --lex -e "var"       2>&1 | @filecheck %s --check-prefix=CHECK_E
+
+// CHECK_A: Processing input 'Expression:def'
+// CHECK_A: Read 3 bytes from buffer at line 0
+// CHECK_A: Found char 'd' in line 0 at pos 0
+// CHECK_A: Found char 'e' in line 0 at pos 1
+// CHECK_A: Found char 'f' in line 0 at pos 2
+// CHECK_A: Lexed token 'Def:def'
+// CHECK_A: Lexed token 'Eoi:'
+
+// CHECK_B: Processing input 'Expression:print'
+// CHECK_B: Read 5 bytes from buffer at line 0
+// CHECK_B: Found char 'p' in line 0 at pos 0
+// CHECK_B: Found char 'r' in line 0 at pos 1
+// CHECK_B: Found char 'i' in line 0 at pos 2
+// CHECK_B: Found char 'n' in line 0 at pos 3
+// CHECK_B: Found char 't' in line 0 at pos 4
+// CHECK_B: Lexed token 'Print:print'
+// CHECK_B: Lexed token 'Eoi:'
+
+// CHECK_C: Processing input 'Expression:return'
+// CHECK_C: Read 6 bytes from buffer at line 0
+// CHECK_C: Found char 'r' in line 0 at pos 0
+// CHECK_C: Found char 'e' in line 0 at pos 1
+// CHECK_C: Found char 't' in line 0 at pos 2
+// CHECK_C: Found char 'u' in line 0 at pos 3
+// CHECK_C: Found char 'r' in line 0 at pos 4
+// CHECK_C: Found char 'n' in line 0 at pos 5
+// CHECK_C: Lexed token 'Return:return'
+// CHECK_C: Lexed token 'Eoi:'
+
+// CHECK_D: Processing input 'Expression:transpose'
+// CHECK_D: Read 9 bytes from buffer at line 0
+// CHECK_D: Found char 't' in line 0 at pos 0
+// CHECK_D: Found char 'r' in line 0 at pos 1
+// CHECK_D: Found char 'a' in line 0 at pos 2
+// CHECK_D: Found char 'n' in line 0 at pos 3
+// CHECK_D: Found char 's' in line 0 at pos 4
+// CHECK_D: Found char 'p' in line 0 at pos 5
+// CHECK_D: Found char 'o' in line 0 at pos 6
+// CHECK_D: Found char 's' in line 0 at pos 7
+// CHECK_D: Found char 'e' in line 0 at pos 8
+// CHECK_D: Lexed token 'Transpose:transpose'
+// CHECK_D: Lexed token 'Eoi:'
+
+// CHECK_E: Processing input 'Expression:var'
+// CHECK_E: Read 3 bytes from buffer at line 0
+// CHECK_E: Found char 'v' in line 0 at pos 0
+// CHECK_E: Found char 'a' in line 0 at pos 1
+// CHECK_E: Found char 'r' in line 0 at pos 2
+// CHECK_E: Lexed token 'Var:var'
+// CHECK_E: Lexed token 'Eoi:'
