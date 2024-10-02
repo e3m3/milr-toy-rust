@@ -716,7 +716,18 @@ impl ExprDisplay for PrototypeExpr {
         let indent = Self::indent(depth);
         write!(f, "{}Proto '{}' {}\n", indent, self.name, loc)?;
         write!(f, "{}Params: [", indent)?;
-        self.values.expr_fmt(f, 0, loc)?;
+        for (i, value) in self.values.0.iter().enumerate() {
+            match value.get_kind() {
+                ExprKind::Var(expr) => write!(f, "{}", expr.get_name())?,
+                _                   => {
+                    eprintln!("Expected variable expression for parameter: {}", value);
+                    exit(ExitCode::AstError);
+                },
+            };
+            if i < self.values.0.len() - 1 {
+                write!(f, ",")?;
+            }
+        }
         write!(f, "]")
     }
 }
@@ -725,9 +736,9 @@ impl ExprDisplay for ReturnExpr {
     fn expr_fmt(&self, f: &mut fmt::Formatter, depth: usize, loc: &Location) -> fmt::Result {
         let indent = Self::indent(depth);
         if self.is_empty() {
-            write!(f, "{}Return {}\n", indent, loc)
+            write!(f, "{}Return: {}\n", indent, loc)
         } else {
-            write!(f, "{}Return {}\n", indent, loc)?;
+            write!(f, "{}Return: {}\n", indent, loc)?;
             let value = self.value.as_ref().unwrap();
             value.get_kind().expr_fmt(f, depth + 1, value.get_loc())
         }
@@ -788,7 +799,7 @@ impl ExprDisplay for VarExpr {
 impl ExprDisplay for VarDeclExpr {
     fn expr_fmt(&self, f: &mut fmt::Formatter, depth: usize, loc: &Location) -> fmt::Result {
         let indent = Self::indent(depth);
-        write!(f, "{}VarDecl {}{} {}\n", indent, self.name, self.shape, loc)?;
+        write!(f, "{}VarDecl: {}{} {}\n", indent, self.name, self.shape, loc)?;
         self.value.get_kind().expr_fmt(f, depth + 1, self.value.get_loc())
     }
 }

@@ -16,27 +16,27 @@ def main() {
 }
 
 // CHECK:   AST:
-// CHECK:   Module '[[PATH:.*]]ast_ch1_1.mlp':
-// CHECK:     Proto 'main' @[[PATH]]ast_ch1_1.mlp:4:1
+// CHECK:   Module '[[PATH:.*]][[MOD:ast_ch1_1\.mlp]]':
+// CHECK:     Proto 'main' @[[PATH]][[MOD]]:4:1
 // CHECK:     Params: []
 // CHECK:     Block {
-// CHECK:       VarDecl a<> @[[PATH]]ast_ch1_1.mlp:7:3
-// CHECK:         Literal: <2,3>[ @[[PATH]]ast_ch1_1.mlp:7:11
-// CHECK:           Literal: <3>[ @[[PATH]]ast_ch1_1.mlp:7:12
+// CHECK:       VarDecl: a<> @[[PATH]][[MOD]]:7:3
+// CHECK:         Literal: <2,3>[ @[[PATH]][[MOD]]:7:11
+// CHECK:           Literal: <3>[ @[[PATH]][[MOD]]:7:12
 // CHECK:             1, 2, 3
 // CHECK:           ] // Literal
-// CHECK:           Literal: <3>[ @[[PATH]]ast_ch1_1.mlp:7:23
+// CHECK:           Literal: <3>[ @[[PATH]][[MOD]]:7:23
 // CHECK:             4, 5, 6
 // CHECK:           ] // Literal
 // CHECK:         ] // Literal
-// CHECK:       VarDecl b<2,3> @[[PATH]]ast_ch1_1.mlp:11:3
-// CHECK:         Literal: <6>[ @[[PATH]]ast_ch1_1.mlp:11:17
+// CHECK:       VarDecl: b<2,3> @[[PATH]][[MOD]]:11:3
+// CHECK:         Literal: <6>[ @[[PATH]][[MOD]]:11:17
 // CHECK:           1, 2, 3, 4, 5, 6
 // CHECK:         ] // Literal
-// CHECK:       Print: @[[PATH]]ast_ch1_1.mlp:15:3
-// CHECK:         Binop: * @[[PATH]]ast_ch1_1.mlp:15:22
-// CHECK:           Transpose: @[[PATH]]ast_ch1_1.mlp:15:9
-// CHECK:             Var: a @[[PATH]]ast_ch1_1.mlp:15:19
-// CHECK:           Transpose: @[[PATH]]ast_ch1_1.mlp:15:24
-// CHECK:             Var: b @[[PATH]]ast_ch1_1.mlp:15:34
+// CHECK:       Print: @[[PATH]][[MOD]]:15:3
+// CHECK:         Binop: * @[[PATH]][[MOD]]:15:22
+// CHECK:           Transpose: @[[PATH]][[MOD]]:15:9
+// CHECK:             Var: a @[[PATH]][[MOD]]:15:19
+// CHECK:           Transpose: @[[PATH]][[MOD]]:15:24
+// CHECK:             Var: b @[[PATH]][[MOD]]:15:34
 // CHECK:     } // Block

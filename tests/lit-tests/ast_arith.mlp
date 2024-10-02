@@ -8,7 +8,7 @@
 // CHECK:     Proto 'test' @Stdin:1:1
 // CHECK:     Params: []
 // CHECK:     Block {
-// CHECK:       Return @Stdin:1:14
+// CHECK:       Return: @Stdin:1:14
 
 // CHECK_A:       10
 
