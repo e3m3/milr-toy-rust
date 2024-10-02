@@ -1,0 +1,10 @@
+// RUN: not @mlpc --parse -e ""              2>&1 | @filecheck %s
+// RUN: not @mlpc --parse -e "def test() {}" 2>&1 | @filecheck %s
+
+// RUN: not @mlpc --parse -e "def test("     2>&1 | @filecheck %s --check-prefix=CHECK_A
+// RUN: not @mlpc --parse -e "def test() {"  2>&1 | @filecheck %s --check-prefix=CHECK_B
+
+// CHECK:   Unexpected empty module 'Stdin'
+
+// CHECK_A: Expected 'Ident' token at position '3'
+// CHECK_B: Expected 'BraceR' token at position '5'

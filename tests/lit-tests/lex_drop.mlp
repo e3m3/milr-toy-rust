@@ -1,5 +1,5 @@
-// RUN: echo -n "hello $" |     @mlpc --verbose --lex --drop - 2>&1 | @filecheck %s --check-prefix=CHECK_A
-// RUN: echo -n "hello é" | not @mlpc --verbose --lex --drop - 2>&1 | @filecheck %s --check-prefix=CHECK_B
+// RUN: echo -n "hello $" |     @mlpc --verbose=lexer --lex --drop - 2>&1 | @filecheck %s --check-prefix=CHECK_A
+// RUN: echo -n "hello é" | not @mlpc --verbose=lexer --lex --drop - 2>&1 | @filecheck %s --check-prefix=CHECK_B
 
 // CHECK_A: Processing input 'Stdin'
 // CHECK_A: Read 7 bytes from buffer at line 0

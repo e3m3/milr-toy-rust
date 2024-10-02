@@ -1,8 +1,8 @@
-// RUN: @mlpc --verbose --lex -e "def"       2>&1 | @filecheck %s --check-prefix=CHECK_A
-// RUN: @mlpc --verbose --lex -e "print"     2>&1 | @filecheck %s --check-prefix=CHECK_B
-// RUN: @mlpc --verbose --lex -e "return"    2>&1 | @filecheck %s --check-prefix=CHECK_C
-// RUN: @mlpc --verbose --lex -e "transpose" 2>&1 | @filecheck %s --check-prefix=CHECK_D
-// RUN: @mlpc --verbose --lex -e "var"       2>&1 | @filecheck %s --check-prefix=CHECK_E
+// RUN: @mlpc --verbose=lexer --lex -e "def"       2>&1 | @filecheck %s --check-prefix=CHECK_A
+// RUN: @mlpc --verbose=lexer --lex -e "print"     2>&1 | @filecheck %s --check-prefix=CHECK_B
+// RUN: @mlpc --verbose=lexer --lex -e "return"    2>&1 | @filecheck %s --check-prefix=CHECK_C
+// RUN: @mlpc --verbose=lexer --lex -e "transpose" 2>&1 | @filecheck %s --check-prefix=CHECK_D
+// RUN: @mlpc --verbose=lexer --lex -e "var"       2>&1 | @filecheck %s --check-prefix=CHECK_E
 
 // CHECK_A: Processing input 'Expression:def'
 // CHECK_A: Read 3 bytes from buffer at line 0

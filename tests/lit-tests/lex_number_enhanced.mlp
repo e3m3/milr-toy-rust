@@ -1,10 +1,10 @@
-// RUN:     @mlpc --verbose --lex -e -9    2>&1 | @filecheck %s --check-prefix=CHECK_A
-// RUN:     @mlpc --verbose --lex -e "- 9" 2>&1 | @filecheck %s --check-prefix=CHECK_B
-// RUN:     @mlpc --verbose --lex -e 0xAF  2>&1 | @filecheck %s --check-prefix=CHECK_C
-// RUN:     @mlpc --verbose --lex -e 0x0c1 2>&1 | @filecheck %s --check-prefix=CHECK_D
-// RUN:     @mlpc --verbose --lex -e 012   2>&1 | @filecheck %s --check-prefix=CHECK_E
-// RUN: not @mlpc --verbose --lex -e 0x0z3 2>&1 | @filecheck %s --check-prefix=CHECK_F
-// RUN: not @mlpc --verbose --lex -e 140_3 2>&1 | @filecheck %s --check-prefix=CHECK_G
+// RUN:     @mlpc --verbose=lexer --lex -e -9    2>&1 | @filecheck %s --check-prefix=CHECK_A
+// RUN:     @mlpc --verbose=lexer --lex -e "- 9" 2>&1 | @filecheck %s --check-prefix=CHECK_B
+// RUN:     @mlpc --verbose=lexer --lex -e 0xAF  2>&1 | @filecheck %s --check-prefix=CHECK_C
+// RUN:     @mlpc --verbose=lexer --lex -e 0x0c1 2>&1 | @filecheck %s --check-prefix=CHECK_D
+// RUN:     @mlpc --verbose=lexer --lex -e 012   2>&1 | @filecheck %s --check-prefix=CHECK_E
+// RUN: not @mlpc --verbose=lexer --lex -e 0x0z3 2>&1 | @filecheck %s --check-prefix=CHECK_F
+// RUN: not @mlpc --verbose=lexer --lex -e 140_3 2>&1 | @filecheck %s --check-prefix=CHECK_G
 
 // CHECK_A: Processing input 'Expression:-9'
 // CHECK_A: Read 2 bytes from buffer at line 0

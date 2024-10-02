@@ -2,6 +2,7 @@
 name = "mlpc"
 version = "0.1.0"
 edition = "2021"
+authors = ["Giordano Salvador <73959795+e3m3@users.noreply.github.com>"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

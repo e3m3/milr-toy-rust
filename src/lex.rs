@@ -7,19 +7,23 @@ use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Read;
 
+use crate::ast;
 use crate::exit_code;
 use crate::options;
 
+use ast::Location;
 use exit_code::exit;
 use exit_code::ExitCode;
 use options::RunOptions;
+use options::VerboseMode;
 
-#[derive(Clone,Copy,Default,Eq,PartialEq)]
+#[derive(Clone,Copy,Debug,Default,Eq,PartialEq)]
 pub enum TokenKind {
     #[default]
     Unknown,
     AngleL,
     AngleR,
+    Assign,
     BraceL,
     BraceR,
     BracketL,
@@ -45,52 +49,60 @@ pub enum TokenKind {
     Var,
 }
 
-pub fn token_kind_to_string(k: TokenKind) -> String {
-    match k {
-        TokenKind::AngleL       => "AngleL",
-        TokenKind::AngleR       => "AngleR",
-        TokenKind::BraceL       => "BraceL",
-        TokenKind::BraceR       => "BraceR",
-        TokenKind::BracketL     => "BracketL",
-        TokenKind::BracketR     => "BracketR",
-        TokenKind::Comma        => "Comma",
-        TokenKind::Comment      => "Comment",
-        TokenKind::Colon        => "Colon",
-        TokenKind::Def          => "Def",
-        TokenKind::Eoi          => "Eoi",
-        TokenKind::Eol          => "Eol",
-        TokenKind::Ident        => "Ident",
-        TokenKind::Minus        => "Minus",
-        TokenKind::Number       => "Number",
-        TokenKind::ParenL       => "ParenL",
-        TokenKind::ParenR       => "ParenR",
-        TokenKind::Print        => "Print",
-        TokenKind::Plus         => "Plus",
-        TokenKind::Return       => "Return",
-        TokenKind::Semicolon    => "Semicolon",
-        TokenKind::Slash        => "Slash",
-        TokenKind::Star         => "Star",
-        TokenKind::Transpose    => "Transpose",
-        TokenKind::Unknown      => "Unknown",
-        TokenKind::Var          => "Var",
-    }.to_string()
+impl fmt::Display for TokenKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", match self {
+            TokenKind::AngleL       => "AngleL",
+            TokenKind::AngleR       => "AngleR",
+            TokenKind::Assign       => "Assign",
+            TokenKind::BraceL       => "BraceL",
+            TokenKind::BraceR       => "BraceR",
+            TokenKind::BracketL     => "BracketL",
+            TokenKind::BracketR     => "BracketR",
+            TokenKind::Comma        => "Comma",
+            TokenKind::Comment      => "Comment",
+            TokenKind::Colon        => "Colon",
+            TokenKind::Def          => "Def",
+            TokenKind::Eoi          => "Eoi",
+            TokenKind::Eol          => "Eol",
+            TokenKind::Ident        => "Ident",
+            TokenKind::Minus        => "Minus",
+            TokenKind::Number       => "Number",
+            TokenKind::ParenL       => "ParenL",
+            TokenKind::ParenR       => "ParenR",
+            TokenKind::Print        => "Print",
+            TokenKind::Plus         => "Plus",
+            TokenKind::Return       => "Return",
+            TokenKind::Semicolon    => "Semicolon",
+            TokenKind::Slash        => "Slash",
+            TokenKind::Star         => "Star",
+            TokenKind::Transpose    => "Transpose",
+            TokenKind::Unknown      => "Unknown",
+            TokenKind::Var          => "Var",
+        })
+    }
 }
 
 #[derive(Clone)]
 pub struct Token {
     pub kind: TokenKind,
     pub text: String,
+    pub loc: Location,
 }
 
 impl Default for Token {
     fn default() -> Self {
-        Token::new(TokenKind::Unknown, Default::default())
+        Token::new(TokenKind::Unknown, Default::default(), Default::default())
     }
 }
 
 impl Token {
-    pub fn new(k: TokenKind, text: String) -> Self {
-        Token{kind: k, text}
+    pub fn new(k: TokenKind, text: String, loc: Location) -> Self {
+        Token{kind: k, text, loc}
+    }
+
+    pub fn get_loc(&self) -> &Location {
+        &self.loc
     }
 
     pub fn is(&self, k: TokenKind) -> bool {
@@ -112,7 +124,7 @@ impl Token {
 
 impl Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}:{}", token_kind_to_string(self.kind), self.text)
+        write!(f, "{}:{}", self.kind, self.text)
     }
 }
 
@@ -120,16 +132,18 @@ pub struct Lexer<'a, T: Read> {
     buffer: BufReader<T>,
     line: String,
     line_count: usize,
+    name: String,
     position: usize,
     options: &'a RunOptions,
 }
 
 impl <'a, T: Read> Lexer<'a, T> {
-    pub fn new(readable: T, options: &'a RunOptions) -> Self {
+    pub fn new(input_name: &str, readable: T, options: &'a RunOptions) -> Self {
         Lexer{
             buffer: BufReader::new(readable),
             line: String::new(),
             line_count: 0,
+            name: input_name.to_string(),
             position: 0,
             options,
         }
@@ -145,7 +159,7 @@ impl <'a, T: Read> Lexer<'a, T> {
             match self.buffer.read_line(&mut self.line) {
                 Ok(size) => {
                     if size > 0 {
-                        if self.options.verbose {
+                        if self.options.is_verbose(VerboseMode::Lexer) {
                             eprintln!("Read {} bytes from buffer at line {}", size, self.line_count);
                         }
                         self.line_count += 1;
@@ -181,7 +195,7 @@ impl <'a, T: Read> Lexer<'a, T> {
                     eprintln!("Only ASCII characters are supported by the lexer");
                     exit(ExitCode::LexerError);
                 }
-                if self.options.verbose {
+                if self.options.is_verbose(VerboseMode::Lexer) {
                     eprintln!("Found char '{}' in line {} at pos {}", c, self.line_count - 1, pos);
                 }
                 c
@@ -277,6 +291,7 @@ impl <'a, T: Read> Lexer<'a, T> {
             self.form_token(t, pos_start, pos_start + 1, match c {
                 '<' => TokenKind::AngleL,
                 '>' => TokenKind::AngleR,
+                '=' => TokenKind::Assign,
                 '{' => TokenKind::BraceL,
                 '}' => TokenKind::BraceR,
                 '[' => TokenKind::BracketL,
@@ -325,6 +340,7 @@ impl <'a, T: Read> Lexer<'a, T> {
                 &self.line[pos_start..pos_end]
             }
         );
+        t.loc = Location::new(self.name.clone(), self.line_count, pos_start + 1);
         self.position = pos_end;
     }
 
@@ -356,7 +372,8 @@ impl <'a, T: Read> Lexer<'a, T> {
             ')' |
             '+' |
             '/' |
-            '*'
+            '*' |
+            '='
         )
     }
 
@@ -399,7 +416,7 @@ impl <'a, T: Read> Lexer<'a, T> {
             if t.is(TokenKind::Unknown) {
                 eprintln!("Found unknown token '{}' in lexer", t.text);
                 if !options.drop_token { exit(ExitCode::LexerError); }
-            } else if options.verbose {
+            } else if options.is_verbose(VerboseMode::Lexer) {
                 eprintln!("Lexed token '{}'", t);
             }
             if t.is(TokenKind::Comment) || t.is(TokenKind::Eol) {

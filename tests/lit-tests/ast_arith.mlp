@@ -1,0 +1,25 @@
+// RUN: @mlpc --ast --parse -e "def test() { return; }"            2>&1 | @filecheck %s
+// RUN: @mlpc --ast --parse -e "def test() { return 10; }"         2>&1 | @filecheck %s --check-prefixes=CHECK,CHECK_A
+// RUN: @mlpc --ast --parse -e "def test() { return 10 - 8 * 3; }" 2>&1 | @filecheck %s --check-prefixes=CHECK,CHECK_B
+// RUN: @mlpc --ast --parse -e "def test() { return 10 * 8 - 3; }" 2>&1 | @filecheck %s --check-prefixes=CHECK,CHECK_C
+
+// CHECK:   AST:
+// CHECK:   Module 'Stdin':
+// CHECK:     Proto 'test' @Stdin:1:1
+// CHECK:     Params: []
+// CHECK:     Block {
+// CHECK:       Return @Stdin:1:14
+
+// CHECK_A:       10
+
+// CHECK_B:       Binop: - @Stdin:1:24
+// CHECK_B:         10
+// CHECK_B:         Binop: * @Stdin:1:28
+// CHECK_B:           8
+// CHECK_B:           3
+
+// CHECK_C:       Binop: - @Stdin:1:28
+// CHECK_C:         Binop: * @Stdin:1:24
+// CHECK_C:           10
+// CHECK_C:           8
+// CHECK_C:         3

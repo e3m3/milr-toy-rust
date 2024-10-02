@@ -1,4 +1,4 @@
-// RUN: @mlpc -v --lex -e "10 + 5  " 2>&1 | @filecheck %s --check-prefix=CHECK_A
+// RUN: @mlpc -v lexer --lex -e "10 + 5  " 2>&1 | @filecheck %s --check-prefix=CHECK_A
 
 // CHECK_A: Processing input 'Expression:10 + 5  '
 // CHECK_A: Read 8 bytes from buffer at line 0

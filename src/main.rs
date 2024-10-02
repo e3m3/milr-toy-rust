@@ -14,21 +14,27 @@ use std::io::Cursor;
 use std::io::stdin;
 use std::path::Path;
 
+mod ast;
 mod command;
 mod exit_code;
 mod lex;
+mod parse;
 mod options;
 
+use ast::Ast;
+use ast::Expr;
 use exit_code::exit;
 use exit_code::ExitCode;
 use lex::Lexer;
 use lex::Token;
+use parse::Parser;
 use options::BodyType;
 use options::CodeGenType;
 use options::HostOS;
 use options::OptLevel;
 use options::OutputType;
 use options::RunOptions;
+use options::VerboseMode;
 
 fn help(code: ExitCode) -> ! {
     eprintln!("usage: {} [OPTIONS] <INPUT>\n{}", PACKAGE, [
@@ -57,7 +63,7 @@ fn help(code: ExitCode) -> ! {
         "-C|--c-main        Link with a C-derived main module (src/main.c.template)",
         "                   This option is required for generating object files and executables on MacOS",
         "                   and requires clang to be installed",
-        "-v|--verbose       Enable verbose output",
+        "-v|--verbose[[=]M] Enable verbose output (M=[all|lexer|parser|sem|codegen]; default: all)",
         "--version          Display the package version and license information",
     ].join("\n"));
     exit(code);
@@ -221,8 +227,8 @@ fn parse_args<'a>(
             "-c"            => set_codegen_type(options, CodeGenType::Object),
             "-C"            => set_body_type(options, BodyType::MainGenC),
             "--drop"        => options.drop_token = true,
-            "-e"            => *input = InputType::Expr(parse_arg_after(args, &mut i)),
-            "--expr"        => *input = InputType::Expr(parse_arg_after(args, &mut i)),
+            "-e"            => *input = InputType::Expr(parse_arg_after(args, &mut i, false).unwrap()),
+            "--expr"        => *input = InputType::Expr(parse_arg_after(args, &mut i, false).unwrap()),
             "-h"            => help(ExitCode::Ok),
             "--help"        => help(ExitCode::Ok),
             "--ir"          => options.ir_exit = true,
@@ -232,7 +238,7 @@ fn parse_args<'a>(
             "--mlir"        => set_codegen_type(options, CodeGenType::Mlir),
             "--no-main"     => set_body_type(options, BodyType::NoMain),
             "--notarget"    => options.no_target = true,
-            "-o"            => *output = OutputType::new(parse_arg_after(args, &mut i)),
+            "-o"            => *output = OutputType::new(parse_arg_after(args, &mut i, false).unwrap()),
             "-O0"           => options.opt_level = OptLevel::O0,
             "-O1"           => options.opt_level = OptLevel::O1,
             "-O2"           => options.opt_level = OptLevel::O2,
@@ -241,10 +247,10 @@ fn parse_args<'a>(
             "--sem"         => options.sem_exit = true,
             "-S"            => set_codegen_type(options, CodeGenType::Mlir),
             "--c-main"      => set_body_type(options, BodyType::MainGenC),
-            "-v"            => options.verbose = true,
-            "--verbose"     => options.verbose = true,
+            "-v"            => options.verbose = parse_verbose(parse_arg_after(args, &mut i, true)),
+            "--verbose"     => options.verbose = parse_verbose(parse_arg_after(args, &mut i, true)),
             "--version"     => print_pkg_info(true),
-            _               => parse_arg_complex(arg, input, output),
+            _               => parse_arg_complex(arg, input, output, options),
         }
         i += 1;
     }
@@ -260,29 +266,46 @@ fn parse_args<'a>(
     if *input == InputType::None {
         eprintln!("No input file/name specified!");
         help(ExitCode::ArgParseError);
-    } else if options.verbose {
+    } else if options.is_verbose_any() {
         eprintln!("Processing input '{}'", *input);
     }
 
-    if options.verbose {
+    if options.is_verbose_any() {
         eprintln!("Outputting to '{}'", *output);
     }
 
     check_options_configuration(options, output);
-    if options.verbose {
+    if options.is_verbose_any() {
         eprintln!("{}", options);
     }
 }
 
-fn parse_arg_after<'a>(args: &'a [String], i: &mut usize) -> &'a str {
-    let name_option = args.get(*i).unwrap();
+fn parse_arg_after<'a>(args: &'a [String], i: &mut usize, none_okay: bool) -> Option<&'a str> {
+    let name = args.get(*i).unwrap();
     match args.get(*i + 1) {
-        Some(arg)   => {
-            *i += 1;
-            arg.as_str()
+        Some(arg) => {
+            if arg.len() > 0 {
+                let lead_char: char = arg.chars().next().unwrap();
+                if !none_okay || (none_okay && lead_char != '-') {
+                    *i += 1;
+                    Some(arg.as_str())
+                } else if none_okay && lead_char == '-' {
+                    None
+                } else {
+                    eprintln!("Expected argument after '{}' option", name);
+                    help(ExitCode::ArgParseError);
+                }
+            } else if none_okay {
+                None
+            } else {
+                *i += 1;
+                Some("")
+            }
         },
-        None        => {
-            eprintln!("Expected argument after '{}' option", name_option);
+        None => if none_okay {
+            None
+        } else {
+            eprintln!("Expected argument after '{}' option", name);
             help(ExitCode::ArgParseError);
         },
     }
@@ -292,9 +315,9 @@ fn parse_arg_complex<'a>(
     arg: &'a String,
     input: &mut InputType<'a>,
     output: &mut OutputType<'a>,
+    options: &mut RunOptions,
 ) {
-    let lead_char: char = arg.chars().next().unwrap();
-    if arg.len() > 1 && lead_char == '-' {
+    if arg.len() > 1 && arg.chars().next().unwrap() == '-' {
         match arg.find('=') {
             None    => {
                 eprintln!("Unrecognized argument '{}'", arg);
@@ -305,6 +328,8 @@ fn parse_arg_complex<'a>(
                     "-e"        => *input = InputType::Expr(&arg[j + 1..]),
                     "--expr"    => *input = InputType::Expr(&arg[j + 1..]),
                     "-o"        => *output = OutputType::new(&arg[j + 1..]),
+                    "-v"        => options.verbose = parse_verbose(Some(&arg[j + 1..])),
+                    "--verbose" => options.verbose = parse_verbose(Some(&arg[j + 1..])),
                     _           => {
                         eprintln!("Unrecognized argument '{}'", arg);
                         help(ExitCode::ArgParseError);
@@ -315,10 +340,17 @@ fn parse_arg_complex<'a>(
     } else if *input != InputType::None {
         eprintln!("Found more than one input ('{}' and '{}')", *input, arg);
         help(ExitCode::ArgParseError);
-    } else if arg.len() == 1 && lead_char == '-' {
+    } else if arg.len() == 1 && arg == "-" {
         *input = InputType::Stdin;
     } else {
         *input = InputType::File(arg.as_str());
+    }
+}
+
+fn parse_verbose(mode: Option<&str>) -> Option<VerboseMode> {
+    match mode {
+        None        => Some(VerboseMode::All),
+        Some(arg)   => Some(str_to_verbose_mode(arg)),
     }
 }
 
@@ -327,8 +359,23 @@ fn print_pkg_info(should_exit: bool) {
     if should_exit { exit(ExitCode::Ok); }
 }
 
+fn str_to_verbose_mode(s: &str) -> VerboseMode {
+    match s.to_lowercase().as_str() {
+        "all"       => VerboseMode::All,
+        "lexer"     => VerboseMode::Lexer,
+        "parser"    => VerboseMode::Parser,
+        "sem"       => VerboseMode::Sem,
+        "codegen"   => VerboseMode::CodeGen,
+        _           => {
+            eprintln!("Unexpected string for verbose mode: {}", s);
+            exit(ExitCode::ArgParseError);
+        }
+    }
+}
+
 fn main() -> ! {
     let args: Vec<String> = env::args().collect();
+    let mut name: String = "Stdin".to_string();
     let mut input: InputType = InputType::None;
     let mut output: OutputType = OutputType::Stdout;
     let mut options: RunOptions = RunOptions::new();
@@ -342,24 +389,25 @@ fn main() -> ! {
             exit(ExitCode::ArgParseError);
         }
         InputType::Stdin    => {
-            let mut lex = Lexer::new(stdin(), &options);
+            let mut lex = Lexer::new(&name, stdin(), &options);
             Lexer::lex_input(&mut tokens, &mut lex, &options);
         }
         InputType::Expr(e)  => {
-            let mut lex = Lexer::new(Cursor::new(e.to_string()), &options);
+            let mut lex = Lexer::new(&name, Cursor::new(e.to_string()), &options);
             Lexer::lex_input(&mut tokens, &mut lex, &options);
         }
         InputType::File(f)  => {
+            name = f.to_string();
             let file: File = File::open(f).expect("Failed to open input file");
-            let mut lex = Lexer::new(file, &options);
+            let mut lex = Lexer::new(&name, file, &options);
             Lexer::lex_input(&mut tokens, &mut lex, &options);
         }
     }
 
-    //let mut expr_tmp: Expr = Default::default();
-    //let mut ast: Box<&mut dyn Ast> = Box::new(&mut expr_tmp);
-    //let mut parser: Parser = Parser::new(&tokens, &options);
-    //Parser::parse_input(&mut ast, &mut parser, &options);
+    let mut expr_tmp: Expr = Default::default();
+    let mut ast: Box<&mut dyn Ast> = Box::new(&mut expr_tmp);
+    let mut parser: Parser = Parser::new(&tokens, &options);
+    Parser::parse_input(&mut ast, &mut parser, &name, &options);
 
     //let sem_check: bool = Semantics::check_all(*ast, &options);
     //assert!(sem_check);

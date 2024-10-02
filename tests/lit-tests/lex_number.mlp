@@ -1,5 +1,5 @@
-// RUN: @mlpc --verbose --lex -e 256   2>&1 | @filecheck %s --check-prefix=CHECK_A
-// RUN: @mlpc --verbose --lex -e 10002 2>&1 | @filecheck %s --check-prefix=CHECK_B
+// RUN: @mlpc --verbose=lexer --lex -e 256   2>&1 | @filecheck %s --check-prefix=CHECK_A
+// RUN: @mlpc --verbose=lexer --lex -e 10002 2>&1 | @filecheck %s --check-prefix=CHECK_B
 
 // CHECK_A: Processing input 'Expression:256'
 // CHECK_A: Read 3 bytes from buffer at line 0

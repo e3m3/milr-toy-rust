@@ -16,7 +16,7 @@ pub struct RunOptions {
     pub parse_exit: bool,
     pub print_ast: bool,
     pub sem_exit: bool,
-    pub verbose: bool,
+    pub verbose: Option<VerboseMode>,
 }
 
 impl RunOptions {
@@ -34,12 +34,27 @@ impl RunOptions {
             parse_exit: false,
             print_ast: false,
             sem_exit: false,
-            verbose: false,
+            verbose: None,
         }
     }
 
     pub fn early_exit(&self) -> bool {
         self.ir_exit || self.lex_exit || self.parse_exit || self.sem_exit
+    }
+
+    pub fn is_verbose(&self, mode: VerboseMode) -> bool {
+        match self.verbose {
+            None    => false,
+            Some(m) => match m {
+                VerboseMode::All    => true,
+                _                   => mode == VerboseMode::All || m == mode,
+            },
+        }
+    }
+
+    /// Same as `is_verbose(VerboseMode::All)`
+    pub fn is_verbose_any(&self) -> bool {
+        self.verbose.is_some()
     }
 }
 
@@ -59,7 +74,7 @@ impl fmt::Display for RunOptions {
             format!("parse_exit: {}",   self.parse_exit),
             format!("print_ast: {}",    self.print_ast),
             format!("sem_exit: {}",     self.sem_exit),
-            format!("verbose: {}",      self.verbose),
+            format!("verbose: {:?}",    self.verbose),
         ];
         write!(f, "{}", s_vec.join("\n    "))
     }
@@ -227,5 +242,29 @@ pub fn get_host_os() -> HostOS {
         HostOS::Windows
     } else {
         HostOS::Unknown
+    }
+}
+
+#[repr(u8)]
+#[derive(Copy,Clone,Debug,Default,PartialEq)]
+pub enum VerboseMode {
+    #[default]
+    All         = 0,
+    Lexer       = 1,
+    Parser      = 2,
+    Sem         = 3,
+    CodeGen     = 4,
+}
+
+impl fmt::Display for VerboseMode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match self {
+            VerboseMode::All        => "VerboseMode_All",
+            VerboseMode::Lexer      => "VerboseMode_Lexer",
+            VerboseMode::Parser     => "VerboseMode_Parser",
+            VerboseMode::Sem        => "VerboseMode_Sem",
+            VerboseMode::CodeGen    => "VerboseMode_CodeGen",
+        };
+        write!(f, "{}", s)
     }
 }

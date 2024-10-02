@@ -6,20 +6,21 @@ use std::process;
 #[repr(u8)]
 #[derive(Clone,Copy)]
 pub enum ExitCode {
-    Ok = 0,
-    ArgParseError = 1,
-    LexerError = 2,
-    ParserError = 3,
-    SemanticError = 4,
-    ModuleError = 5,
-    IRGenError = 6,
-    MainGenError = 7,
-    MainGenCError = 8,
-    VerifyError = 9,
-    TargetError = 10,
-    LinkError = 11,
-    WriteError = 12,
-    CommandError = 13,
+    Ok              = 0,
+    AstError        = 1,
+    ArgParseError   = 2,
+    LexerError      = 3,
+    ParserError     = 4,
+    SemanticError   = 5,
+    ModuleError     = 6,
+    IRGenError      = 7,
+    MainGenError    = 8,
+    MainGenCError   = 9,
+    VerifyError     = 10,
+    TargetError     = 11,
+    LinkError       = 12,
+    WriteError      = 13,
+    CommandError    = 14,
 }
 
 pub fn exit(code: ExitCode) -> ! {

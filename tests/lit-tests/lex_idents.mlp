@@ -1,10 +1,10 @@
-// RUN: @mlpc --verbose --lex -e "N"    2>&1 | @filecheck %s --check-prefix=CHECK_A
-// RUN: @mlpc --verbose --lex -e "_N"   2>&1 | @filecheck %s --check-prefix=CHECK_B
-// RUN: @mlpc --verbose --lex -e "N0"   2>&1 | @filecheck %s --check-prefix=CHECK_C
-// RUN: @mlpc --verbose --lex -e "N_0"  2>&1 | @filecheck %s --check-prefix=CHECK_D
-// RUN: @mlpc --verbose --lex -e "_N0"  2>&1 | @filecheck %s --check-prefix=CHECK_E
-// RUN: @mlpc --verbose --lex -e "_N_0" 2>&1 | @filecheck %s --check-prefix=CHECK_F
-// RUN: @mlpc --verbose --lex -e "-N"   2>&1 | @filecheck %s --check-prefix=CHECK_G
+// RUN: @mlpc --verbose=lexer --lex -e "N"    2>&1 | @filecheck %s --check-prefix=CHECK_A
+// RUN: @mlpc --verbose=lexer --lex -e "_N"   2>&1 | @filecheck %s --check-prefix=CHECK_B
+// RUN: @mlpc --verbose=lexer --lex -e "N0"   2>&1 | @filecheck %s --check-prefix=CHECK_C
+// RUN: @mlpc --verbose=lexer --lex -e "N_0"  2>&1 | @filecheck %s --check-prefix=CHECK_D
+// RUN: @mlpc --verbose=lexer --lex -e "_N0"  2>&1 | @filecheck %s --check-prefix=CHECK_E
+// RUN: @mlpc --verbose=lexer --lex -e "_N_0" 2>&1 | @filecheck %s --check-prefix=CHECK_F
+// RUN: @mlpc --verbose=lexer --lex -e "-N"   2>&1 | @filecheck %s --check-prefix=CHECK_G
 
 // CHECK_A: Processing input 'Expression:N'
 // CHECK_A: Read 1 bytes from buffer at line 0

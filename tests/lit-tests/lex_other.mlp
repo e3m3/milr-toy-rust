@@ -1,7 +1,7 @@
-// RUN: @mlpc --verbose --lex -e ',:-()/*<>{}[];' 2>&1 | @filecheck %s
+// RUN: @mlpc --verbose=lexer --lex -e ',:-()/*<>{}[];=' 2>&1 | @filecheck %s
 
-// CHECK: Processing input 'Expression:,:-()/*<>{}[];'
-// CHECK: Read 14 bytes from buffer at line 0
+// CHECK: Processing input 'Expression:,:-()/*<>{}[];='
+// CHECK: Read 15 bytes from buffer at line 0
 // CHECK: Found char ',' in line 0 at pos 0
 // CHECK: Lexed token 'Comma:,'
 // CHECK: Found char ':' in line 0 at pos 1
@@ -30,4 +30,6 @@
 // CHECK: Lexed token 'BracketR:]'
 // CHECK: Found char ';' in line 0 at pos 13
 // CHECK: Lexed token 'Semicolon:;'
+// CHECK: Found char '=' in line 0 at pos 14
+// CHECK: Lexed token 'Assign:='
 // CHECK: Lexed token 'Eoi:'

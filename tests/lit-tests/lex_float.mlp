@@ -1,11 +1,11 @@
-// RUN: @mlpc --verbose --lex -e "0."       2>&1 | @filecheck %s --check-prefix=CHECK_A
-// RUN: @mlpc --verbose --lex -e "1."       2>&1 | @filecheck %s --check-prefix=CHECK_B
-// RUN: @mlpc --verbose --lex -e "0.0"      2>&1 | @filecheck %s --check-prefix=CHECK_C
-// RUN: @mlpc --verbose --lex -e "1.0"      2>&1 | @filecheck %s --check-prefix=CHECK_D
-// RUN: @mlpc --verbose --lex -e "100.0134" 2>&1 | @filecheck %s --check-prefix=CHECK_E
-// RUN: @mlpc --verbose --lex -e "-0."      2>&1 | @filecheck %s --check-prefix=CHECK_F
-// RUN: @mlpc --verbose --lex -e "-1."      2>&1 | @filecheck %s --check-prefix=CHECK_G
-// RUN: @mlpc --verbose --lex -e ".02"      2>&1 | @filecheck %s --check-prefix=CHECK_H
+// RUN: @mlpc --verbose=lexer --lex -e "0."       2>&1 | @filecheck %s --check-prefix=CHECK_A
+// RUN: @mlpc --verbose=lexer --lex -e "1."       2>&1 | @filecheck %s --check-prefix=CHECK_B
+// RUN: @mlpc --verbose=lexer --lex -e "0.0"      2>&1 | @filecheck %s --check-prefix=CHECK_C
+// RUN: @mlpc --verbose=lexer --lex -e "1.0"      2>&1 | @filecheck %s --check-prefix=CHECK_D
+// RUN: @mlpc --verbose=lexer --lex -e "100.0134" 2>&1 | @filecheck %s --check-prefix=CHECK_E
+// RUN: @mlpc --verbose=lexer --lex -e "-0."      2>&1 | @filecheck %s --check-prefix=CHECK_F
+// RUN: @mlpc --verbose=lexer --lex -e "-1."      2>&1 | @filecheck %s --check-prefix=CHECK_G
+// RUN: @mlpc --verbose=lexer --lex -e ".02"      2>&1 | @filecheck %s --check-prefix=CHECK_H
 
 // CHECK_A: Processing input 'Expression:0.'
 // CHECK_A: Read 2 bytes from buffer at line 0

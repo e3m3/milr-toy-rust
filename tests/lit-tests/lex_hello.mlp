@@ -1,7 +1,7 @@
-// RUN: @mlpc --verbose --lex -e hello     2>&1 | @filecheck %s
-// RUN: @mlpc --verbose --lex -e=hello     2>&1 | @filecheck %s
-// RUN: @mlpc --verbose --lex --expr hello 2>&1 | @filecheck %s
-// RUN: @mlpc --verbose --lex --expr=hello 2>&1 | @filecheck %s
+// RUN: @mlpc --verbose=lexer --lex -e hello     2>&1 | @filecheck %s
+// RUN: @mlpc --verbose=lexer --lex -e=hello     2>&1 | @filecheck %s
+// RUN: @mlpc --verbose=lexer --lex --expr hello 2>&1 | @filecheck %s
+// RUN: @mlpc --verbose=lexer --lex --expr=hello 2>&1 | @filecheck %s
 
 // CHECK: Processing input 'Expression:hello'
 // CHECK: Read 5 bytes from buffer at line 0

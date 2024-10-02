@@ -1,5 +1,5 @@
-// RUN: @mlpc -v --lex -e "//"                          2>&1 | @filecheck %s --check-prefix=CHECK_A
-// RUN: @mlpc -v --lex -e "// comment"                  2>&1 | @filecheck %s --check-prefix=CHECK_B
+// RUN: @mlpc -v=lexer --lex -e "//"         2>&1 | @filecheck %s --check-prefix=CHECK_A
+// RUN: @mlpc -v=lexer --lex -e "// comment" 2>&1 | @filecheck %s --check-prefix=CHECK_B
 
 // CHECK_A: Processing input 'Expression://'
 // CHECK_A: Read 2 bytes from buffer at line 0
