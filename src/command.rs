@@ -23,7 +23,14 @@ impl CommandResult {
 pub struct Command {}
 
 impl Command {
-    pub fn run(bin: &str, args: &[&str]) -> CommandResult {
+    fn print_command(bin: &str, args: &[&str]) -> () {
+        eprintln!("{} {}", bin, args.join(" "));
+    }
+
+    pub fn run(bin: &str, args: &[&str], verbose: bool) -> CommandResult {
+        if verbose {
+            Self::print_command(bin, args);
+        }
         let output = match process::Command::new(bin).args(args.iter()).output() {
             Ok(output)  => output,
             Err(msg)    => {
@@ -44,7 +51,10 @@ impl Command {
         CommandResult::new(output.status.success(), stdout_opt)
     }
 
-    pub fn run_with_input(bin: &str, args: &[&str], input: &str) -> CommandResult {
+    pub fn run_with_input(bin: &str, args: &[&str], input: &str, verbose: bool) -> CommandResult {
+        if verbose {
+            Self::print_command(bin, args);
+        }
         let mut proc = match process::Command::new(bin)
             .args(args.iter())
             .stdin(Stdio::piped())

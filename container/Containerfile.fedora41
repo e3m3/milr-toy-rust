@@ -27,10 +27,12 @@ RUN mkdir -p ${PROJECT_DIR}
 RUN mkdir -p ${PROJECT_DIR}/src
 RUN mkdir -p ${PROJECT_DIR}/tests
 
+COPY build.rs               ${PROJECT_DIR}/
 COPY Cargo.toml             ${PROJECT_DIR}/
 COPY rust-toolchain.toml    ${PROJECT_DIR}/
 COPY LICENSE                ${PROJECT_DIR}/
 COPY README.md              ${PROJECT_DIR}/
+COPY mlir                   ${PROJECT_DIR}/mlir/
 COPY src                    ${PROJECT_DIR}/src/
 COPY tests                  ${PROJECT_DIR}/tests/
 
