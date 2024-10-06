@@ -24,6 +24,9 @@ for further processing.
 The MLIR source contains the definitions for the optimization driver (`opt-mlp`), as well as the
 registration of the MLIR dialect (`dialect-mlp.{h,td}`) and its operations (`ops-mlp.{h,td}`).
 
+The implementation boilerplate here is currently modeled after the MLIR repository toy example [[1]],
+and the MLIR standalone dialect template [[2]] until a more complex example can be constructed.
+
 
 #   Workflow
 
@@ -72,9 +75,20 @@ registration of the MLIR dialect (`dialect-mlp.{h,td}`) and its operations (`ops
         However, my understanding is that the pass pipeline is driven by the `opt` tool which is
         stated to depend on the textual parser which expects dialect registration with the context.
 
+    *   Does using the MLIR C API mitigate this issue (i.e., using the mlir-sys package directly)?
+        Or will this require extra effort avoided by using the tablegen autogeneration?
+
 
 #   References
 
-[1]:    https://mlir.llvm.org/getting_started/Faq/#registered-loaded-dependent-whats-up-with-dialects-management
+[1]:    https://mlir.llvm.org/docs/Tutorials/Toy/Ch-2/
+
+[2]:    https://github.com/jmgorius/mlir-standalone-template
+
+[3]:    https://mlir.llvm.org/getting_started/Faq/#registered-loaded-dependent-whats-up-with-dialects-management
+
+1.  `https://mlir.llvm.org/docs/Tutorials/Toy/Ch-2/`
+
+1.  `https://github.com/jmgorius/mlir-standalone-template`
 
 1.  `https://mlir.llvm.org/getting_started/Faq/#registered-loaded-dependent-whats-up-with-dialects-management`
