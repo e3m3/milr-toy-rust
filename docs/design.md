@@ -78,6 +78,9 @@ and the MLIR standalone dialect template [[2]] until a more complex example can 
     *   Does using the MLIR C API mitigate this issue (i.e., using the mlir-sys package directly)?
         Or will this require extra effort avoided by using the tablegen autogeneration?
 
+        *   The best solution is probably to use a combination of vanilla dialects in the frontend.
+            Will generate directly via C API.
+
 
 #   References
 
