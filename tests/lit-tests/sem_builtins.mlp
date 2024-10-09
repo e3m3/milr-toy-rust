@@ -1,0 +1,6 @@
+// RUN: @mlpc --verbose=sem --sem -e "def main() { return; }" 2>&1 | @filecheck %s --check-prefix=CHECK_A
+
+// CHECK_A:     Added symbol 'print' to scope
+// CHECK_A:     Added symbol 'transpose' to scope
+// CHECK_A-NOT: Removed symbol 'print' from scope
+// CHECK_A-NOT: Removed symbol 'transpose' from scope

@@ -1,0 +1,17 @@
+// RUN: not @mlpc --verbose=sem --sem %s 2>&1 | @filecheck %s
+
+def foo() {
+    return 10;
+}
+
+def main() {
+    print(foo());
+    var foo<> = [1, 2, 3];
+    print(foo);
+}
+
+// CHECK: Added symbol 'foo' to scope
+// CHECK: Found symbol 'print' in scope
+// CHECK: Found symbol 'foo' in scope
+// CHECK: Redeclaration of symbol 'foo' @[[SRC_PATH]]:9:5
+// CHECK: AST failed DeclCheck semantics check

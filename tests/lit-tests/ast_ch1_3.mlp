@@ -29,47 +29,47 @@ def main() {
 }
 
 // CHECK: AST:
-// CHECK: Module '[[PATH:.*]][[MOD:ast_ch1_3\.mlp]]':
-// CHECK:   Proto 'multiply_transpose' @[[PATH]][[MOD]]:5:1
+// CHECK: Module '[[SRC_PATH]]':
+// CHECK:   Proto 'multiply_transpose' @[[SRC_PATH]]:5:5
 // CHECK:     Params: [a,b]
 // CHECK:     Block {
-// CHECK:       Return: @[[PATH]][[MOD]]:6:3
-// CHECK:         Binop: * @[[PATH]][[MOD]]:6:23
-// CHECK:           Transpose: @[[PATH]][[MOD]]:6:10
-// CHECK:             Var: a @[[PATH]][[MOD]]:6:20
-// CHECK:           Transpose: @[[PATH]][[MOD]]:6:25
-// CHECK:             Var: b @[[PATH]][[MOD]]:6:35
+// CHECK:       Return: @[[SRC_PATH]]:6:3
+// CHECK:         Binop: * @[[SRC_PATH]]:6:23
+// CHECK:           Transpose: @[[SRC_PATH]]:6:10
+// CHECK:             Var: a @[[SRC_PATH]]:6:20
+// CHECK:           Transpose: @[[SRC_PATH]]:6:25
+// CHECK:             Var: b @[[SRC_PATH]]:6:35
 // CHECK:     } // Block
-// CHECK:   Proto 'main' @[[PATH]][[MOD]]:9:1
+// CHECK:   Proto 'main' @[[SRC_PATH]]:9:5
 // CHECK:     Params: []
 // CHECK:     Block {
-// CHECK:       VarDecl: a<> @[[PATH]][[MOD]]:11:3
-// CHECK:         Literal: <2,3>[ @[[PATH]][[MOD]]:11:11
-// CHECK:           Literal: <3>[ @[[PATH]][[MOD]]:11:12
+// CHECK:       VarDecl: a<> @[[SRC_PATH]]:11:3
+// CHECK:         Literal: <2,3>[ @[[SRC_PATH]]:11:11
+// CHECK:           Literal: <3>[ @[[SRC_PATH]]:11:12
 // CHECK:             1, 2, 3
 // CHECK:           ] // Literal
-// CHECK:           Literal: <3>[ @[[PATH]][[MOD]]:11:23
+// CHECK:           Literal: <3>[ @[[SRC_PATH]]:11:23
 // CHECK:             4, 5, 6
 // CHECK:           ] // Literal
 // CHECK:         ] // Literal
-// CHECK:       VarDecl: b<2,3> @[[PATH]][[MOD]]:12:3
-// CHECK:         Literal: <6>[ @[[PATH]][[MOD]]:12:17
+// CHECK:       VarDecl: b<2,3> @[[SRC_PATH]]:12:3
+// CHECK:         Literal: <6>[ @[[SRC_PATH]]:12:17
 // CHECK:           1, 2, 3, 4, 5, 6
 // CHECK:         ] // Literal
-// CHECK:       VarDecl: c<> @[[PATH]][[MOD]]:16:3
-// CHECK:         Call 'multiply_transpose': @[[PATH]][[MOD]]:16:11
-// CHECK:           Var: a @[[PATH]][[MOD]]:16:30
-// CHECK:           Var: b @[[PATH]][[MOD]]:16:33
-// CHECK:       VarDecl: d<> @[[PATH]][[MOD]]:20:3
-// CHECK:         Call 'multiply_transpose': @[[PATH]][[MOD]]:20:11
-// CHECK:           Var: b @[[PATH]][[MOD]]:20:30
-// CHECK:           Var: a @[[PATH]][[MOD]]:20:33
-// CHECK:       VarDecl: e<> @[[PATH]][[MOD]]:24:3
-// CHECK:         Call 'multiply_transpose': @[[PATH]][[MOD]]:24:11
-// CHECK:           Var: c @[[PATH]][[MOD]]:24:30
-// CHECK:           Var: d @[[PATH]][[MOD]]:24:33
-// CHECK:       VarDecl: f<> @[[PATH]][[MOD]]:28:3
-// CHECK:         Call 'multiply_transpose': @[[PATH]][[MOD]]:28:11
-// CHECK:           Var: a @[[PATH]][[MOD]]:28:30
-// CHECK:           Var: c @[[PATH]][[MOD]]:28:33
+// CHECK:       VarDecl: c<> @[[SRC_PATH]]:16:3
+// CHECK:         Call 'multiply_transpose': @[[SRC_PATH]]:16:11
+// CHECK:           Var: a @[[SRC_PATH]]:16:30
+// CHECK:           Var: b @[[SRC_PATH]]:16:33
+// CHECK:       VarDecl: d<> @[[SRC_PATH]]:20:3
+// CHECK:         Call 'multiply_transpose': @[[SRC_PATH]]:20:11
+// CHECK:           Var: b @[[SRC_PATH]]:20:30
+// CHECK:           Var: a @[[SRC_PATH]]:20:33
+// CHECK:       VarDecl: e<> @[[SRC_PATH]]:24:3
+// CHECK:         Call 'multiply_transpose': @[[SRC_PATH]]:24:11
+// CHECK:           Var: c @[[SRC_PATH]]:24:30
+// CHECK:           Var: d @[[SRC_PATH]]:24:33
+// CHECK:       VarDecl: f<> @[[SRC_PATH]]:28:3
+// CHECK:         Call 'multiply_transpose': @[[SRC_PATH]]:28:11
+// CHECK:           Var: a @[[SRC_PATH]]:28:30
+// CHECK:           Var: c @[[SRC_PATH]]:28:33
 // CHECK:     } // Block

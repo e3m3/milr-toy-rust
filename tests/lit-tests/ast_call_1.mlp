@@ -1,0 +1,30 @@
+// RUN: @mlpc --ast --parse -e "def test() { print(1); }"                    2>&1 | @filecheck %s --check-prefix=CHECK_A
+// RUN: @mlpc --ast --parse -e "def test() { var a<> = [2]; print(a); }"     2>&1 | @filecheck %s --check-prefix=CHECK_B
+// RUN: @mlpc --ast --parse -e "def test() { var a<> = [2]; transpose(a); }" 2>&1 | @filecheck %s --check-prefix=CHECK_C
+
+
+// CHECK:   AST:
+// CHECK:   Module 'Stdin':
+// CHECK:     Proto 'test' @Stdin:1:5
+// CHECK:     Params: []
+// CHECK:     Block {
+
+// CHECK_A:     Print: @Stdin:1:14
+// CHECK_A:       1
+// CHECK_A:   } // Block
+
+// CHECK_B:     VarDecl: a<> @Stdin:1:14
+// CHECK_B:       Literal: <1>[ @Stdin:1:24
+// CHECK_B:         2
+// CHECK_B:       ] // Literal
+// CHECK_B:     Print: @Stdin:1:29
+// CHECK_B:       Var: a @Stdin:1:35
+// CHECK_B:   } // Block
+
+// CHECK_C:     VarDecl: a<> @Stdin:1:14
+// CHECK_C:       Literal: <1>[ @Stdin:1:24
+// CHECK_C:         2
+// CHECK_C:       ] // Literal
+// CHECK_C:     Transpose: @Stdin:1:29
+// CHECK_C:       Var: a @Stdin:1:39
+// CHECK_C:   } // Block

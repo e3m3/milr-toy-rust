@@ -1,0 +1,9 @@
+// RUN: not @mlpc --verbose=parser --parse -e "def print() { return; }"               2>&1 | @filecheck %s --check-prefix=CHECK_A
+// RUN: not @mlpc --verbose=parser --parse -e "def transpose() { return; }"           2>&1 | @filecheck %s --check-prefix=CHECK_A
+
+// RUN: not @mlpc --verbose=parser --parse -e "def test() { var print<> = [2]; }"     2>&1 | @filecheck %s --check-prefix=CHECK_B
+// RUN: not @mlpc --verbose=parser --parse -e "def test() { var transpose<> = [2]; }" 2>&1 | @filecheck %s --check-prefix=CHECK_B
+
+// CHECK_A: Expected 'Ident' token at position '1'
+
+// CHECK_B: Expected 'Ident' token at position '6'

@@ -1,7 +1,9 @@
 // RUN: @mlpc -v=parser --parse -e "def test() { return; }"            2>&1 | @filecheck %s
 // RUN: @mlpc -v=parser --parse -e "def test() { return 10; }"         2>&1 | @filecheck %s --check-prefixes=CHECK,CHECK_A
-// RUN: @mlpc -v=parser --parse -e "def test() { return 10 - 8 * 3; }" 2>&1 | @filecheck %s --check-prefixes=CHECK,CHECK_B
-// RUN: @mlpc -v=parser --parse -e "def test() { return 10 * 8 - 3; }" 2>&1 | @filecheck %s --check-prefixes=CHECK,CHECK_C
+// RUN: @mlpc -v=parser --parse -e "def test() { return -10; }"        2>&1 | @filecheck %s --check-prefixes=CHECK,CHECK_B
+// RUN: @mlpc -v=parser --parse -e "def test() { return -1.0; }"       2>&1 | @filecheck %s --check-prefixes=CHECK,CHECK_C
+// RUN: @mlpc -v=parser --parse -e "def test() { return 10 - 8 * 3; }" 2>&1 | @filecheck %s --check-prefixes=CHECK,CHECK_D
+// RUN: @mlpc -v=parser --parse -e "def test() { return 10 * 8 - 3; }" 2>&1 | @filecheck %s --check-prefixes=CHECK,CHECK_E
 
 // CHECK:   Consumed expected token 'Def:def' at position '0'
 // CHECK:   Consumed expected token 'Ident:test' at position '1'
@@ -12,14 +14,20 @@
 
 // CHECK_A: Consumed expected token 'Number:10' at position '6'
 
-// CHECK_B: Consumed expected token 'Number:10' at position '6'
-// CHECK_B: Consumed expected token 'Minus:-' at position '7'
-// CHECK_B: Consumed expected token 'Number:8' at position '8'
-// CHECK_B: Consumed expected token 'Star:*' at position '9'
-// CHECK_B: Consumed expected token 'Number:3' at position '10'
+// CHECK_B: Consumed expected token 'Minus:-' at position '6'
+// CHECK_B: Consumed expected token 'Number:10' at position '7'
 
-// CHECK_C: Consumed expected token 'Number:10' at position '6'
-// CHECK_C: Consumed expected token 'Star:*' at position '7'
-// CHECK_C: Consumed expected token 'Number:8' at position '8'
-// CHECK_C: Consumed expected token 'Minus:-' at position '9'
-// CHECK_C: Consumed expected token 'Number:3' at position '10'
+// CHECK_C: Consumed expected token 'Minus:-' at position '6'
+// CHECK_C: Consumed expected token 'Number:1.0' at position '7'
+
+// CHECK_D: Consumed expected token 'Number:10' at position '6'
+// CHECK_D: Consumed expected token 'Minus:-' at position '7'
+// CHECK_D: Consumed expected token 'Number:8' at position '8'
+// CHECK_D: Consumed expected token 'Star:*' at position '9'
+// CHECK_D: Consumed expected token 'Number:3' at position '10'
+
+// CHECK_E: Consumed expected token 'Number:10' at position '6'
+// CHECK_E: Consumed expected token 'Star:*' at position '7'
+// CHECK_E: Consumed expected token 'Number:8' at position '8'
+// CHECK_E: Consumed expected token 'Minus:-' at position '9'
+// CHECK_E: Consumed expected token 'Number:3' at position '10'

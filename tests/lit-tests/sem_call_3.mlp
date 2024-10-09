@@ -1,0 +1,19 @@
+// RUN: @mlpc --verbose=sem --sem %s 2>&1 | @filecheck %s
+
+def foo(a) {
+    return a;
+}
+
+def test() {
+    return foo(1);
+}
+
+// CHECK: Running DeclCheck on module '[[SRC_PATH]]'
+// CHECK: Added symbol 'a' to scope
+// CHECK: Found symbol 'a' in scope
+// CHECL: Removed symbol 'a' from scope
+// CHECK: Added symbol 'foo' to scope
+// CHECK: Found symbol 'foo' in scope
+// CHECK: Added symbol 'test' to scope
+// CHECK: Removed symbol 'foo' from scope
+// CHECK: Removed symbol 'test' from scope

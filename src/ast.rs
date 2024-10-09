@@ -33,6 +33,7 @@ pub trait Ast: fmt::Display {
     fn get_kind_id(&self) -> ExprKindID;
     fn get_kind(&self) -> &ExprKind;
     fn get_loc(&self) -> &Location;
+    fn get_symbol(&self) -> Symbol;
     fn isa(&self, id: ExprKindID) -> bool;
     //fn accept_gen(&self, visitor: &mut dyn AstGenerator) -> GenResult;
 }
@@ -92,6 +93,8 @@ pub enum ExprKind {
     Var(VarExpr),
     VarDecl(VarDeclExpr),
 }
+
+pub type Symbol = Option<String>;
 
 ////////////////////////////////////////
 //  Struct section
@@ -260,6 +263,10 @@ impl CallExpr {
     pub fn get_callee(&self) -> &String {
         &self.name
     }
+
+    pub fn get_symbol(&self) -> Symbol {
+        Some(self.get_callee().clone())
+    }
 }
 
 impl FunctionExpr {
@@ -273,6 +280,10 @@ impl FunctionExpr {
 
     pub fn get_prototype(&self) -> &Value {
         &self.proto
+    }
+
+    pub fn get_symbol(&self) -> Symbol {
+        self.proto.get_symbol()
     }
 }
 
@@ -327,6 +338,10 @@ impl ModuleExpr {
     pub fn get_name(&self) -> &String {
         &self.name
     }
+
+    pub fn get_symbol(&self) -> Symbol {
+        Some(self.get_name().clone())
+    }
 }
 
 impl Default for ModuleExpr {
@@ -350,6 +365,10 @@ impl PrintExpr {
         PrintExpr{value}
     }
 
+    pub fn get_symbol(&self) -> Symbol {
+        Some("print".to_string())
+    }
+
     pub fn get_value(&self) -> &Value {
         &self.value
     }
@@ -366,6 +385,10 @@ impl PrototypeExpr {
 
     pub fn get_name(&self) -> &String {
         &self.name
+    }
+
+    pub fn get_symbol(&self) -> Symbol {
+        Some(self.get_name().clone())
     }
 }
 
@@ -402,6 +425,10 @@ impl Default for Shape {
 impl TransposeExpr {
     pub fn new(value: Value) -> Self {
         TransposeExpr{value}
+    }
+
+    pub fn get_symbol(&self) -> Symbol {
+        Some("transpose".to_string())
     }
 
     pub fn get_value(&self) -> &Value {
@@ -455,6 +482,10 @@ impl VarExpr {
     pub fn get_name(&self) -> &String {
         &self.name
     }
+
+    pub fn get_symbol(&self) -> Symbol {
+        Some(self.get_name().clone())
+    }
 }
 
 impl VarDeclExpr {
@@ -468,6 +499,10 @@ impl VarDeclExpr {
 
     pub fn get_shape(&self) -> &Shape {
         &self.shape
+    }
+
+    pub fn get_symbol(&self) -> Symbol {
+        Some(self.get_name().clone())
     }
 
     pub fn get_value(&self) -> &Value {
@@ -498,6 +533,10 @@ impl Ast for Expr {
 
     fn get_loc(&self) -> &Location {
         &self.loc
+    }
+
+    fn get_symbol(&self) -> Symbol {
+        self.get_kind().get_symbol()
     }
 
     fn isa(&self, id: ExprKindID) -> bool {
@@ -573,11 +612,116 @@ impl Expr {
     pub fn new_var_decl(name: String, shape: Shape, value: Value, loc: Location) -> Self {
         Expr::new(ExprKind::VarDecl(VarDeclExpr::new(name, shape, value)), ExprKindID::VarDecl, loc)
     }
+
 }
 
 impl Default for Expr {
     fn default() -> Self {
         Expr::new(ExprKind::Unset(), ExprKindID::Unset, Default::default())
+    }
+}
+
+impl ExprKind {
+    pub fn get_symbol(&self) -> Symbol {
+        match self {
+            ExprKind::Binop(expr)       => None,
+            ExprKind::Call(expr)        => expr.get_symbol(),
+            ExprKind::Function(expr)    => expr.get_symbol(),
+            ExprKind::Literal(expr)     => None,
+            ExprKind::Module(expr)      => expr.get_symbol(),
+            ExprKind::Number(expr)      => None,
+            ExprKind::Print(expr)       => expr.get_symbol(),
+            ExprKind::Prototype(expr)   => expr.get_symbol(),
+            ExprKind::Return(expr)      => None,
+            ExprKind::Transpose(expr)   => expr.get_symbol(),
+            ExprKind::Unset()           => None,
+            ExprKind::Var(expr)         => expr.get_symbol(),
+            ExprKind::VarDecl(expr)     => expr.get_symbol(),
+        }
+    }
+
+    pub fn to_binop(&self) -> Option<&BinopExpr> {
+        match self {
+            ExprKind::Binop(expr)   => Some(expr),
+            _                       => None,
+        }
+    }
+
+    pub fn to_call(&self) -> Option<&CallExpr> {
+        match self {
+            ExprKind::Call(expr)    => Some(expr),
+            _                       => None,
+        }
+    }
+
+    pub fn to_function(&self) -> Option<&FunctionExpr> {
+        match self {
+            ExprKind::Function(expr)    => Some(expr),
+            _                           => None,
+        }
+    }
+
+    pub fn to_literal(&self) -> Option<&LiteralExpr> {
+        match self {
+            ExprKind::Literal(expr) => Some(expr),
+            _                       => None,
+        }
+    }
+
+    pub fn to_module(&self) -> Option<&ModuleExpr> {
+        match self {
+            ExprKind::Module(expr)  => Some(expr),
+            _                       => None,
+        }
+    }
+
+    pub fn to_number(&self) -> Option<&NumberExpr> {
+        match self {
+            ExprKind::Number(expr)  => Some(expr),
+            _                       => None,
+        }
+    }
+
+    pub fn to_print(&self) -> Option<&PrintExpr> {
+        match self {
+            ExprKind::Print(expr)   => Some(expr),
+            _                       => None,
+        }
+    }
+
+    pub fn to_prototype(&self) -> Option<&PrototypeExpr> {
+        match self {
+            ExprKind::Prototype(expr)   => Some(expr),
+            _                           => None,
+        }
+    }
+
+    pub fn to_return(&self) -> Option<&ReturnExpr> {
+        match self {
+            ExprKind::Return(expr)  => Some(expr),
+            _                       => None,
+        }
+    }
+
+    pub fn to_transpose(&self) -> Option<&TransposeExpr> {
+        match self {
+            ExprKind::Transpose(expr)   => Some(expr),
+            _                           => None,
+        }
+    }
+
+    pub fn to_var(&self) -> Option<&VarExpr> {
+        match self {
+            ExprKind::Var(expr) => Some(expr),
+            _                   => None,
+        }
+    }
+
+    pub fn to_var_decl(&self) -> Option<&VarDeclExpr> {
+        match self {
+            ExprKind::VarDecl(expr) => Some(expr),
+            _                       => None,
+        }
     }
 }
 
@@ -609,8 +753,12 @@ impl ExprDisplay for BinopExpr {
 impl ExprDisplay for CallExpr {
     fn expr_fmt(&self, f: &mut fmt::Formatter, depth: usize, loc: &Location) -> fmt::Result {
         let indent = Self::indent(depth);
-        write!(f, "{}Call '{}': {}\n", indent, self.name, loc)?;
-        self.args.expr_fmt(f, depth + 1, loc)
+        write!(f, "{}Call '{}': {}", indent, self.name, loc)?;
+        if !self.args.is_empty() {
+            write!(f, "\n")?;
+            self.args.expr_fmt(f, depth + 1, loc)?;
+        }
+        Ok(())
     }
 }
 

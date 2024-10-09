@@ -1,0 +1,24 @@
+// RUN: @mlpc --verbose=sem --sem -e "def test() { print(1); }"                    2>&1 | @filecheck %s --check-prefix=CHECK_A
+// RUN: @mlpc --verbose=sem --sem -e "def test() { var a<> = [2]; print(a); }"     2>&1 | @filecheck %s --check-prefix=CHECK_B
+// RUN: @mlpc --verbose=sem --sem -e "def test() { var a<> = [2]; transpose(a); }" 2>&1 | @filecheck %s --check-prefix=CHECK_C
+
+// CHECK_A: Running DeclCheck on module 'Stdin'
+// CHECK_A: Found symbol 'print' in scope
+// CHECK_A: Added symbol 'test' to scope
+// CHECK_A: Removed symbol 'test' from scope
+
+// CHECK_B: Running DeclCheck on module 'Stdin'
+// CHECK_B: Added symbol 'a' to scope
+// CHECK_B: Found symbol 'print' in scope
+// CHECK_B: Found symbol 'a' in scope
+// CHECK_B: Removed symbol 'a' from scope
+// CHECK_B: Added symbol 'test' to scope
+// CHECK_B: Removed symbol 'test' from scope
+
+// CHECK_C: Running DeclCheck on module 'Stdin'
+// CHECK_C: Added symbol 'a' to scope
+// CHECK_C: Found symbol 'transpose' in scope
+// CHECK_C: Found symbol 'a' in scope
+// CHECK_C: Removed symbol 'a' from scope
+// CHECK_C: Added symbol 'test' to scope
+// CHECK_C: Removed symbol 'test' from scope

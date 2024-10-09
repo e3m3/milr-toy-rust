@@ -19,6 +19,7 @@ mod command;
 mod exit_code;
 mod lex;
 mod parse;
+mod sem;
 mod options;
 
 use ast::Ast;
@@ -35,6 +36,7 @@ use options::OptLevel;
 use options::OutputType;
 use options::RunOptions;
 use options::VerboseMode;
+use sem::Semantics;
 
 fn help(code: ExitCode) -> ! {
     eprintln!("usage: {} [OPTIONS] <INPUT>\n{}", PACKAGE, [
@@ -409,8 +411,8 @@ fn main() -> ! {
     let mut parser: Parser = Parser::new(&tokens, &options);
     Parser::parse_input(&mut ast, &mut parser, &name, &options);
 
-    //let sem_check: bool = Semantics::check_all(*ast, &options);
-    //assert!(sem_check);
+    let sem_check: bool = Semantics::check_all(*ast, &options);
+    assert!(sem_check);
 
     exit(ExitCode::Ok);
 }

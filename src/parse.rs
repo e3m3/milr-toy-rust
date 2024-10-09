@@ -321,7 +321,7 @@ impl <'a> Parser<'a> {
     /// Optimize empty function definitions out
     fn parse_definition(&'a self, iter: &mut ParserIter) -> Option<Value> {
         let proto = self.parse_prototype(iter);
-        let loc = self.get_location(iter);
+        let loc = proto.get_loc().clone();
         let mut values: Values = Default::default();
         self.parse_block(iter, &mut values);
         if !values.is_empty() {
@@ -346,10 +346,10 @@ impl <'a> Parser<'a> {
         if self.get_prev_token(iter).is_one_of(&BUILTINS) {
             self.parse_call(iter, name)
         } else {
-            if !self.check(iter, TokenKind::ParenL) {
-                Expr::new_var(name, loc).as_value()
-            } else {
+            if self.check(iter, TokenKind::ParenL) {
                 self.parse_call(iter, name)
+            } else {
+                Expr::new_var(name, loc).as_value()
             }
         }
     }
@@ -420,6 +420,9 @@ impl <'a> Parser<'a> {
     fn parse_paren_expr_list(&'a self, iter: &mut ParserIter, values: &mut Values) -> () {
         self.expect(iter, TokenKind::ParenL, false);
         loop {
+            if self.check(iter, TokenKind::ParenR) {
+                break;
+            }
             match self.parse_expression(iter) {
                 Some(value) => values.push(value),
                 None        => break,
@@ -434,6 +437,10 @@ impl <'a> Parser<'a> {
     fn parse_primary(&'a self, iter: &mut ParserIter) -> Option<Value> {
         if self.check_one_of(iter, &BUILTINS_AND_IDENTS) {
             Some(self.parse_ident_expr(iter))
+        } else if self.check(iter, TokenKind::Minus) {
+            // TODO: Should be typed to rhs if more types added
+            let value_zero = Expr::new_number(TMlp::default(), self.get_location(iter)).as_value();
+            Some(self.parse_binop_rhs(iter, Default::default(), value_zero))
         } else if self.check(iter, TokenKind::Number) {
             Some(self.parse_number_expr(iter))
         } else if self.check(iter, TokenKind::ParenL) {
@@ -449,8 +456,8 @@ impl <'a> Parser<'a> {
 
     fn parse_prototype(&'a self, iter: &mut ParserIter) -> Value {
         self.expect(iter, TokenKind::Def, false);
-        let loc = self.get_location(iter);
         self.expect(iter, TokenKind::Ident, true);
+        let loc = self.get_location(iter);
         let name = self.get_prev_token(iter).text.clone();
         let mut args: Values = Default::default();
         self.parse_param_list(iter, &mut args);

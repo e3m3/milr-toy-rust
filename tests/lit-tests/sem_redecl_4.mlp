@@ -1,0 +1,21 @@
+// RUN: @mlpc --verbose=sem --sem %s 2>&1 | @filecheck %s
+
+def foo() {
+    var a<> = [1, 2, 3];
+    var foo<> = [4, 5, 6];
+    return 1;
+}
+
+def main() {
+    return foo();
+}
+
+// CHECK: Added symbol 'a' to scope
+// CHECK: Added symbol 'foo' to scope
+// CHECK: Removed symbol 'a' from scope
+// CHECK: Removed symbol 'foo' from scope
+// CHECK: Added symbol 'foo' to scope
+// CHECK: Found symbol 'foo' in scope
+// CHECK: Added symbol 'main' to scope
+// CHECK: Removed symbol 'foo' from scope
+// CHECK: Removed symbol 'main' from scope

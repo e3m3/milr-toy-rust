@@ -1,0 +1,45 @@
+// RUN: @mlpc --verbose=parser --parse %s 2>&1 | @filecheck %s
+
+def foo(a) {
+    return a;
+}
+
+def test() {
+    var b<> = [1, 2];
+    return foo(b);
+}
+
+// CHECK: Consumed expected token 'Def:def' at position '0'
+// CHECK: Consumed expected token 'Ident:foo' at position '1'
+// CHECK: Consumed expected token 'ParenL:(' at position '2'
+// CHECK: Consumed expected token 'Ident:a' at position '3'
+// CHECK: Consumed expected token 'ParenR:)' at position '4'
+// CHECK: Consumed expected token 'BraceL:{' at position '5'
+// CHECK: Consumed expected token 'Return:return' at position '6'
+// CHECK: Consumed expected token 'Ident:a' at position '7'
+// CHECK: Consumed expected token 'Semicolon:;' at position '8'
+// CHECK: Consumed expected token 'BraceR:}' at position '9'
+// CHECK: Consumed expected token 'Def:def' at position '10'
+// CHECK: Consumed expected token 'Ident:test' at position '11'
+// CHECK: Consumed expected token 'ParenL:(' at position '12'
+// CHECK: Consumed expected token 'ParenR:)' at position '13'
+// CHECK: Consumed expected token 'BraceL:{' at position '14'
+// CHECK: Consumed expected token 'Var:var' at position '15'
+// CHECK: Consumed expected token 'Ident:b' at position '16'
+// CHECK: Consumed expected token 'AngleL:<' at position '17'
+// CHECK: Consumed expected token 'AngleR:>' at position '18'
+// CHECK: Consumed expected token 'Assign:=' at position '19'
+// CHECK: Consumed expected token 'BracketL:[' at position '20'
+// CHECK: Consumed expected token 'Number:1' at position '21'
+// CHECK: Consumed expected token 'Comma:,' at position '22'
+// CHECK: Consumed expected token 'Number:2' at position '23'
+// CHECK: Consumed expected token 'BracketR:]' at position '24'
+// CHECK: Consumed expected token 'Semicolon:;' at position '25'
+// CHECK: Consumed expected token 'Return:return' at position '26'
+// CHECK: Consumed expected token 'Ident:foo' at position '27'
+// CHECK: Consumed expected token 'ParenL:(' at position '28'
+// CHECK: Consumed expected token 'Ident:b' at position '29'
+// CHECK: Consumed expected token 'ParenR:)' at position '30'
+// CHECK: Consumed expected token 'Semicolon:;' at position '31'
+// CHECK: Consumed expected token 'BraceR:}' at position '32'
+// CHECK: Consumed expected token 'Eoi:' at position '33'

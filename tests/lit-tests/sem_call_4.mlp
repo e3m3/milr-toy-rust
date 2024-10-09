@@ -1,0 +1,23 @@
+// RUN: @mlpc --verbose=sem --sem %s 2>&1 | @filecheck %s
+
+def foo(a) {
+    return a;
+}
+
+def test() {
+    var b<> = [1, 2];
+    return foo(b);
+}
+
+// CHECK: Running DeclCheck on module '[[SRC_PATH]]'
+// CHECK: Added symbol 'a' to scope
+// CHECK: Found symbol 'a' in scope
+// CHECK: Removed symbol 'a' from scope
+// CHECK: Added symbol 'foo' to scope
+// CHECK: Added symbol 'b' to scope
+// CHECK: Found symbol 'foo' in scope
+// CHECK: Found symbol 'b' in scope
+// CHECK: Removed symbol 'b' from scope
+// CHECK: Added symbol 'test' to scope
+// CHECK: Removed symbol 'foo' from scope
+// CHECK: Removed symbol 'test' from scope

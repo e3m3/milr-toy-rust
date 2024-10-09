@@ -1,0 +1,12 @@
+// RUN: not @mlpc --verbose=sem --sem %s 2>&1 | @filecheck %s
+
+def main() {
+    return 10;
+}
+
+def main() {
+    return -2.3;
+}
+
+// CHECK: Redeclaration of function 'main' @[[SRC_PATH]]:7:5
+// CHECK: AST failed DeclCheck semantics check

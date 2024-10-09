@@ -1,0 +1,20 @@
+// RUN: @mlpc --verbose=sem --sem %s 2>&1 | @filecheck %s
+// XFAIL: *
+
+proto foo();
+
+def main() {
+    return print(foo());
+}
+
+def foo() {
+    return 10;
+}
+
+// CHECK: Added symbol 'foo' in scope
+// CHECK: Added symbol 'main' in scope
+// CHECK: Found symbol 'print' in scope
+// CHECK: Found symbol 'foo' in scope
+// CHECK: Found definition for symbol 'foo' in scope
+// CHECK: Removed symbol 'foo' in scope
+// CHECK: Removed symbol 'main' in scope
