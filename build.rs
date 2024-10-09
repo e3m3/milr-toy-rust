@@ -19,13 +19,6 @@ mod exit_code;
 use exit_code::exit;
 use exit_code::ExitCode;
 
-#[cfg_attr(target_os = "linux", path="src/options.rs")]
-#[cfg_attr(target_os = "macos", path="src/options.rs")]
-#[cfg_attr(target_os = "windows", path="src\\options.rs")]
-mod options;
-use options::HostArch;
-use options::get_host_arch;
-
 #[derive(Copy,Clone)]
 enum GenType {
     Dialect,
@@ -164,7 +157,7 @@ fn add_mlir_dialect(dialect: &str, dialect_namespace: &str, llvm_include_path: &
 
 /// Returns a path to a static library generated for the dialect
 /// Depends on generating the dialect via `add_mlir_dialect`
-fn add_mlir_lib(dialect: &str, dialect_namspace: &str, include_path: &PathBuf) -> PathBuf {
+fn add_mlir_lib(dialect: &str, _dialect_namspace: &str, include_path: &PathBuf) -> PathBuf {
     let cpp_ops     = input(&get_name(dialect, NameConfig::new(GenType::Ops, ExtType::Impl)));
     let cpp_dialect = input(&get_name(dialect, NameConfig::new(GenType::Dialect, ExtType::Impl)));
     let obj_ops     = output(&get_name(dialect, NameConfig::new(GenType::Ops, ExtType::Object)));
@@ -341,7 +334,8 @@ fn process_result(result: &CommandResult) -> Option<String> {
     }
 }
 
-fn main() -> () {
+#[allow(dead_code)]
+fn build_dialect() -> () {
     cargo_rerun(&get_name("mlp", NameConfig::new(GenType::Dialect, ExtType::TableGen)));
     cargo_rerun(&get_name("mlp", NameConfig::new(GenType::Ops, ExtType::TableGen)));
 
@@ -369,5 +363,9 @@ fn main() -> () {
     eprintln!("> Generating mlp-opt driver");
     let opt_source = get_name("mlp", NameConfig::new(GenType::Opt, ExtType::Impl));
     add_llvm_executable("mlp-opt", &opt_source, &output_path(), vec![lib_mlp.to_str().unwrap()]);
+    exit(ExitCode::Ok);
+}
+
+fn main() -> () {
     exit(ExitCode::Ok);
 }

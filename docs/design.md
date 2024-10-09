@@ -80,6 +80,7 @@ and the MLIR standalone dialect template [[2]] until a more complex example can 
 
         *   The best solution is probably to use a combination of vanilla dialects in the frontend.
             Will generate directly via C API.
+            Disable 'build.rs' (probably will delete).
 
 
 #   References
