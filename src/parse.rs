@@ -532,13 +532,13 @@ impl <'a> Parser<'a> {
     }
 
     pub fn parse_input(
-        ret: &mut Box<&'a mut dyn Ast>,
+        ret: &mut Box<&'a mut dyn Ast<Expr>>,
         parser: &'a mut Parser<'a>,
         name: &str,
         options: &RunOptions
     ) {
         let mut iter = parser.iter();
-        *ret = Box::new(Box::leak(parser.parse_module(name, &mut iter)) as &'a mut dyn Ast);
+        *ret = Box::new(Box::leak(parser.parse_module(name, &mut iter)) as &'a mut dyn Ast<Expr>);
         if options.print_ast { eprintln!("AST:\n{}", ret); }
         if options.parse_exit { exit(ExitCode::Ok); }
     }

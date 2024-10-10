@@ -20,10 +20,13 @@ mod exit_code;
 mod lex;
 mod parse;
 mod sem;
+mod sem_decl;
+mod sem_type;
 mod options;
 
 use ast::Ast;
 use ast::Expr;
+use ast::TypeMap;
 use exit_code::exit;
 use exit_code::ExitCode;
 use lex::Lexer;
@@ -407,12 +410,11 @@ fn main() -> ! {
     }
 
     let mut expr_tmp: Expr = Default::default();
-    let mut ast: Box<&mut dyn Ast> = Box::new(&mut expr_tmp);
+    let mut ast: Box<&mut dyn Ast<Expr>> = Box::new(&mut expr_tmp);
     let mut parser: Parser = Parser::new(&tokens, &options);
     Parser::parse_input(&mut ast, &mut parser, &name, &options);
 
-    let sem_check: bool = Semantics::check_all(*ast, &options);
-    assert!(sem_check);
+    let _type_map: TypeMap = Semantics::check_all(*ast, &options);
 
     exit(ExitCode::Ok);
 }

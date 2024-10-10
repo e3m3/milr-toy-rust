@@ -1,13 +1,11 @@
 // Copyright 2024, Giordano Salvador
 // SPDX-License-Identifier: BSD-3-Clause
 
-//extern crate llvm_sys as llvm;
-//use llvm::prelude::LLVMValueRef;
-
 use crate::exit_code;
 use exit_code::exit;
 use exit_code::ExitCode;
 
+use std::collections::HashMap;
 use std::fmt;
 use std::mem;
 use std::path::Path;
@@ -18,25 +16,78 @@ use std::vec::Vec;
 //  Ast trait section
 ////////////////////////////////////////
 
-//pub type GenResult = Result<LLVMValueRef, &'static str>;
-
-//pub trait AstGenerator {
-//    fn visit(&mut self, ast: &dyn Ast) -> GenResult;
-//}
-
-pub trait AstVisitor {
-    fn visit(&mut self, ast: &dyn Ast) -> bool;
+pub trait AcceptGen<T, U> {
+    fn accept_gen(&self, generator: &mut dyn AstGenerator<T, U>, acc: Option<U>) -> GenResult<U>;
 }
 
-pub trait Ast: fmt::Display {
-    fn accept(&self, visitor: &mut dyn AstVisitor) -> bool;
-    fn get_kind_id(&self) -> ExprKindID;
-    fn get_kind(&self) -> &ExprKind;
+pub trait AcceptVisit<T> {
+    fn accept(&self, visitor: &mut dyn AstVisitor<T>) -> bool;
+}
+
+pub trait Ast<T>: fmt::Display {
+    fn as_impl(&self) -> &T;
     fn get_loc(&self) -> &Location;
-    fn get_symbol(&self) -> Symbol;
-    fn isa(&self, id: ExprKindID) -> bool;
-    //fn accept_gen(&self, visitor: &mut dyn AstGenerator) -> GenResult;
+    fn get_symbol(&self) -> Option<Symbol>;
 }
+
+pub trait AstGenerator<T, U> {
+    fn gen(&mut self, ast: &dyn Ast<T>, acc: Option<U>) -> GenResult<U>;
+}
+
+pub trait AstVisitor<T> {
+    fn visit(&mut self, ast: &dyn Ast<T>) -> bool;
+}
+
+pub type Dims = Vec<TDim>;
+
+pub type GenResult<T> = Result<T, &'static str>;
+
+#[derive(Clone,Default)]
+pub struct Location {
+    file_name: String,
+    line_no: usize,
+    col_no: usize,
+}
+
+#[derive(Clone,Default,PartialEq)]
+pub struct Shape(Dims);
+
+pub type Symbol = String;
+
+pub type TDim   = i64;
+pub type TMlp   = f64;
+
+#[derive(Clone,Default,PartialEq)]
+pub enum Type {
+    #[default]
+    Unit,
+    Scalar(TypeBase),
+    Sig(Box<TypeSignature>),
+    Tensor(TypeTensor),
+}
+
+#[derive(Clone,Copy,PartialEq)]
+pub enum TypeBase {
+    F64,
+}
+
+pub type TypeMap = HashMap<Symbol, Type>;
+
+#[derive(Clone,PartialEq)]
+pub struct TypeSignature {
+    params: Vec<Type>,
+    ret: Type,
+}
+
+#[derive(Clone,PartialEq)]
+pub struct TypeTensor {
+    shape: Shape,
+    t: TypeBase,
+}
+
+////////////////////////////////////////
+//  Expr section
+////////////////////////////////////////
 
 pub trait ExprDisplay {
     fn expr_fmt(&self, f: &mut fmt::Formatter, depth: usize, loc: &Location) -> fmt::Result;
@@ -94,15 +145,6 @@ pub enum ExprKind {
     VarDecl(VarDeclExpr),
 }
 
-pub type Symbol = Option<String>;
-
-////////////////////////////////////////
-//  Struct section
-////////////////////////////////////////
-
-pub type TDim = i64;
-pub type TMlp = f64;
-
 #[repr(u8)]
 #[derive(Clone,Copy,PartialEq)]
 pub enum Binop {
@@ -126,8 +168,6 @@ pub struct CallExpr {
     name: String,
 }
 
-pub type Dims = Vec<TDim>;
-
 pub struct FunctionExpr {
     proto: Value,
     values: Values,
@@ -136,13 +176,6 @@ pub struct FunctionExpr {
 pub struct LiteralExpr {
     shape: Shape,
     values: Values,
-}
-
-#[derive(Clone)]
-pub struct Location {
-    file_name: String,
-    line_no: usize,
-    col_no: usize,
 }
 
 pub struct ModuleExpr {
@@ -172,9 +205,6 @@ pub struct TransposeExpr {
     value: Value,
 }
 
-#[derive(Clone,PartialEq)]
-pub struct Shape(Dims);
-
 pub type Value = Box<Expr>;
 
 pub struct Values(Vec<Value>);
@@ -191,7 +221,168 @@ pub struct VarDeclExpr {
 }
 
 ////////////////////////////////////////
-//  Struct implementation section
+//  Ast implementation section
+////////////////////////////////////////
+
+impl <U> AcceptGen<Expr, U> for Expr {
+    fn accept_gen(&self, generator: &mut dyn AstGenerator<Expr, U>, acc: Option<U>) -> GenResult<U> {
+        generator.gen(self, acc)
+    }
+}
+
+impl AcceptVisit<Expr> for Expr {
+    fn accept(&self, visitor: &mut dyn AstVisitor<Expr>) -> bool {
+        visitor.visit(self)
+    }
+}
+
+impl Ast<Expr> for Expr {
+    fn as_impl(&self) -> &Expr {
+        self
+    }
+
+    fn get_loc(&self) -> &Location {
+        &self.loc
+    }
+
+    fn get_symbol(&self) -> Option<Symbol> {
+        self.get_kind().get_symbol()
+    }
+}
+
+impl Location {
+    pub fn new(file_name: String, line_no: usize, col_no: usize) -> Self {
+        Location{file_name, line_no, col_no}
+    }
+
+    pub fn exists(&self) -> bool {
+        let p = Path::new(&self.file_name);
+        p.exists()
+    }
+
+    pub fn get_col(&self) -> usize {
+        self.col_no
+    }
+
+    pub fn get_line(&self) -> usize {
+        self.line_no
+    }
+}
+
+impl Shape {
+    pub fn new(dims: Dims) -> Self {
+        Shape{0: dims}
+    }
+
+    pub fn get(&self) -> &Dims {
+        &self.0
+    }
+}
+
+impl Type {
+    pub fn new_scalar(t: TypeBase) -> Self {
+        Self::Scalar(t)
+    }
+
+    pub fn new_signature(sig: TypeSignature) -> Self {
+        Self::Sig(Box::new(sig))
+    }
+
+    pub fn new_tensor(t: TypeTensor) -> Self {
+        Self::Tensor(t)
+    }
+
+    pub fn is_unit(&self) -> bool {
+        *self == Type::Unit
+    }
+
+    pub fn is_scalar(&self) -> bool {
+        match self {
+            Type::Scalar(_) => true,
+            _               => false,
+        }
+    }
+
+    pub fn is_signature(&self) -> bool {
+        match self {
+            Type::Sig(_)    => true,
+            _               => false,
+        }
+    }
+
+    pub fn is_tensor(&self) -> bool {
+        match self {
+            Type::Tensor(_) => true,
+            _               => false,
+        }
+    }
+}
+
+impl TypeBase {
+    pub fn new_f64() -> Self {
+        Self::F64
+    }
+
+    pub fn isa(&self, t: TypeBase) -> bool {
+        *self == t
+    }
+
+    pub fn is_f64(&self) -> bool {
+        *self == TypeBase::F64
+    }
+}
+
+impl TypeSignature {
+    pub fn new(params: Vec<Type>, ret: Type) -> Self {
+        TypeSignature{params, ret}
+    }
+
+    pub fn get_params(&self) -> &Vec<Type> {
+        &self.params
+    }
+
+    pub fn get_type(&self) -> &Type {
+        &self.ret
+    }
+
+    pub fn has_return(&self) -> bool {
+        self.get_type().is_unit()
+    }
+}
+
+impl TypeTensor {
+    pub fn new(shape: Shape, t: TypeBase) -> Self {
+        TypeTensor{shape, t}
+    }
+
+    pub fn new_unranked(t: TypeBase) -> Self {
+        Self::new(Default::default(), t)
+    }
+
+    pub fn get_shape(&self) -> &Shape {
+        &self.shape
+    }
+
+    pub fn get_type(&self) -> TypeBase {
+        self.t 
+    }
+
+    pub fn is_unranked(&self) -> bool {
+        self.shape.get().is_empty()
+    }
+
+    pub fn set_rank(&mut self, shape: &Shape) -> () {
+        if self.is_unranked() {
+            self.shape.0.extend_from_slice(shape.get().as_slice());
+        } else {
+            eprintln!("Tensor already has rank: {}", self.get_shape());
+            exit(ExitCode::AstError);
+        }
+    }
+}
+
+////////////////////////////////////////
+//  Expr implementation section
 ////////////////////////////////////////
 
 pub fn binop_from_str(op: &str) -> Binop {
@@ -265,7 +456,7 @@ impl CallExpr {
     }
 
     pub fn get_symbol(&self) -> Symbol {
-        Some(self.get_callee().clone())
+        self.get_callee().clone()
     }
 }
 
@@ -283,7 +474,7 @@ impl FunctionExpr {
     }
 
     pub fn get_symbol(&self) -> Symbol {
-        self.proto.get_symbol()
+        self.proto.get_kind().to_prototype().unwrap().get_symbol()
     }
 }
 
@@ -301,31 +492,6 @@ impl LiteralExpr {
     }
 }
 
-impl Location {
-    pub fn new(file_name: String, line_no: usize, col_no: usize) -> Self {
-        Location{file_name, line_no, col_no}
-    }
-
-    pub fn exists(&self) -> bool {
-        let p = Path::new(&self.file_name);
-        p.exists()
-    }
-
-    pub fn get_col(&self) -> usize {
-        self.col_no
-    }
-
-    pub fn get_line(&self) -> usize {
-        self.line_no
-    }
-}
-
-impl Default for Location {
-    fn default() -> Self {
-        Location::new(String::new(), 0, 0)
-    }
-}
-
 impl ModuleExpr {
     pub fn new(name: String, values: Values) -> Self {
         ModuleExpr{name, values}
@@ -340,7 +506,7 @@ impl ModuleExpr {
     }
 
     pub fn get_symbol(&self) -> Symbol {
-        Some(self.get_name().clone())
+        self.get_name().clone()
     }
 }
 
@@ -366,7 +532,7 @@ impl PrintExpr {
     }
 
     pub fn get_symbol(&self) -> Symbol {
-        Some("print".to_string())
+        "print".to_string()
     }
 
     pub fn get_value(&self) -> &Value {
@@ -388,7 +554,7 @@ impl PrototypeExpr {
     }
 
     pub fn get_symbol(&self) -> Symbol {
-        Some(self.get_name().clone())
+        self.get_name().clone()
     }
 }
 
@@ -406,29 +572,13 @@ impl ReturnExpr {
     }
 }
 
-impl Shape {
-    pub fn new(dims: Dims) -> Self {
-        Shape{0: dims}
-    }
-
-    pub fn get(&self) -> &Dims {
-        &self.0
-    }
-}
-
-impl Default for Shape {
-    fn default() -> Self {
-        Shape::new(Vec::new())
-    }
-}
-
 impl TransposeExpr {
     pub fn new(value: Value) -> Self {
         TransposeExpr{value}
     }
 
     pub fn get_symbol(&self) -> Symbol {
-        Some("transpose".to_string())
+        "transpose".to_string()
     }
 
     pub fn get_value(&self) -> &Value {
@@ -484,7 +634,7 @@ impl VarExpr {
     }
 
     pub fn get_symbol(&self) -> Symbol {
-        Some(self.get_name().clone())
+        self.get_name().clone()
     }
 }
 
@@ -502,7 +652,7 @@ impl VarDeclExpr {
     }
 
     pub fn get_symbol(&self) -> Symbol {
-        Some(self.get_name().clone())
+        self.get_name().clone()
     }
 
     pub fn get_value(&self) -> &Value {
@@ -514,39 +664,21 @@ impl VarDeclExpr {
     }
 }
 
-////////////////////////////////////////
-//  Ast implementation section
-////////////////////////////////////////
-
-impl Ast for Expr {
-    fn accept(&self, visitor: &mut dyn AstVisitor) -> bool {
-        visitor.visit(self)
-    }
-
-    fn get_kind(&self) -> &ExprKind {
-        &self.kind
-    }
-
-    fn get_kind_id(&self) -> ExprKindID {
-        self.id
-    }
-
-    fn get_loc(&self) -> &Location {
-        &self.loc
-    }
-
-    fn get_symbol(&self) -> Symbol {
-        self.get_kind().get_symbol()
-    }
-
-    fn isa(&self, id: ExprKindID) -> bool {
-        self.get_kind_id() == id
-    }
-}
-
 impl Expr {
     pub fn as_value(&mut self) -> Value {
         Value::new(mem::take(self))
+    }
+
+    pub fn get_kind(&self) -> &ExprKind {
+        &self.kind
+    }
+
+    pub fn get_kind_id(&self) -> ExprKindID {
+        self.id
+    }
+
+    pub fn isa(&self, id: ExprKindID) -> bool {
+        self.get_kind_id() == id
     }
 
     pub fn new(kind: ExprKind, id: ExprKindID, loc: Location) -> Self {
@@ -612,7 +744,6 @@ impl Expr {
     pub fn new_var_decl(name: String, shape: Shape, value: Value, loc: Location) -> Self {
         Expr::new(ExprKind::VarDecl(VarDeclExpr::new(name, shape, value)), ExprKindID::VarDecl, loc)
     }
-
 }
 
 impl Default for Expr {
@@ -622,21 +753,21 @@ impl Default for Expr {
 }
 
 impl ExprKind {
-    pub fn get_symbol(&self) -> Symbol {
+    pub fn get_symbol(&self) -> Option<Symbol> {
         match self {
             ExprKind::Binop(expr)       => None,
-            ExprKind::Call(expr)        => expr.get_symbol(),
-            ExprKind::Function(expr)    => expr.get_symbol(),
+            ExprKind::Call(expr)        => Some(expr.get_symbol()),
+            ExprKind::Function(expr)    => Some(expr.get_symbol()),
             ExprKind::Literal(expr)     => None,
-            ExprKind::Module(expr)      => expr.get_symbol(),
+            ExprKind::Module(expr)      => Some(expr.get_symbol()),
             ExprKind::Number(expr)      => None,
-            ExprKind::Print(expr)       => expr.get_symbol(),
-            ExprKind::Prototype(expr)   => expr.get_symbol(),
+            ExprKind::Print(expr)       => Some(expr.get_symbol()),
+            ExprKind::Prototype(expr)   => Some(expr.get_symbol()),
             ExprKind::Return(expr)      => None,
-            ExprKind::Transpose(expr)   => expr.get_symbol(),
+            ExprKind::Transpose(expr)   => Some(expr.get_symbol()),
             ExprKind::Unset()           => None,
-            ExprKind::Var(expr)         => expr.get_symbol(),
-            ExprKind::VarDecl(expr)     => expr.get_symbol(),
+            ExprKind::Var(expr)         => Some(expr.get_symbol()),
+            ExprKind::VarDecl(expr)     => Some(expr.get_symbol()),
         }
     }
 
@@ -901,6 +1032,57 @@ impl fmt::Display for Shape {
             .collect::<Vec<String>>()
             .join(",")
         )
+    }
+}
+
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", match self {
+            Type::Unit          => "()".to_string(),
+            Type::Scalar(t)     => t.to_string(),
+            Type::Sig(t_box)    => t_box.to_string(),
+            Type::Tensor(t)     => t.to_string(),
+        })
+    }
+}
+
+impl fmt::Display for TypeBase {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", match self {
+            TypeBase::F64 => "f64",
+        })
+    }
+}
+
+impl fmt::Display for TypeSignature {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let n = self.get_params().len();
+        write!(f, "fn(")?;
+        for (i, t) in self.get_params().iter().enumerate() {
+            write!(f, "{}", t)?;
+            if i < n - 1 {
+                write!(f, ", ")?;
+            }
+        }
+        write!(f, " -> {})", self.get_type())
+    }
+}
+
+impl fmt::Display for TypeTensor {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "<")?;
+        if self.is_unranked() {
+            write!(f, "*")?;
+        } else {
+            let n = self.get_shape().get().len();
+            for (i, dim) in self.get_shape().get().iter().enumerate() {
+                write!(f, "{}", dim)?;
+                if i < n - 1 {
+                    write!(f, "x")?;
+                }
+            }
+        }
+        write!(f, "x{}>", self.get_type())
     }
 }
 
