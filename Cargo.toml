@@ -9,6 +9,7 @@ authors = ["Giordano Salvador <73959795+e3m3@users.noreply.github.com>"]
 [dependencies]
 llvm-sys = { version = "=191.0.0", features = ["force-dynamic"] }
 mlir-sys = { version = "=0.3.0" }
+multimap = { version = "0.10.0" }
 
 [dev-dependencies]
 

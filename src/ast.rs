@@ -5,23 +5,33 @@ use crate::exit_code;
 use exit_code::exit;
 use exit_code::ExitCode;
 
-use std::collections::HashMap;
+use std::cmp;
+use std::collections::HashSet;
 use std::fmt;
+use std::iter;
 use std::mem;
 use std::path::Path;
 use std::slice;
+use std::rc::Rc;
 use std::vec::Vec;
+
+extern crate multimap;
+use multimap::MultiMap;
 
 ////////////////////////////////////////
 //  Ast trait section
 ////////////////////////////////////////
 
-pub trait AcceptGen<T, U> {
-    fn accept_gen(&self, generator: &mut dyn AstGenerator<T, U>, acc: Option<U>) -> GenResult<U>;
+pub trait AcceptGen<T, U, V> {
+    fn accept_gen(
+        &self,
+        generator: &mut dyn AstGenerator<T, U, V>,
+        acc: U,
+    ) -> GenResult<V>;
 }
 
 pub trait AcceptVisit<T> {
-    fn accept(&self, visitor: &mut dyn AstVisitor<T>) -> bool;
+    fn accept_visit(&self, visitor: &mut dyn AstVisitor<T>) -> bool;
 }
 
 pub trait Ast<T>: fmt::Display {
@@ -30,17 +40,25 @@ pub trait Ast<T>: fmt::Display {
     fn get_symbol(&self) -> Option<Symbol>;
 }
 
-pub trait AstGenerator<T, U> {
-    fn gen(&mut self, ast: &dyn Ast<T>, acc: Option<U>) -> GenResult<U>;
+pub trait AstGenerator<T, U, V> {
+    fn gen(&mut self, ast: &dyn Ast<T>, acc: U) -> GenResult<V>;
 }
 
 pub trait AstVisitor<T> {
     fn visit(&mut self, ast: &dyn Ast<T>) -> bool;
 }
 
+/// Interface for checking if any component of a type has not been completely resolved
+/// through type inference.
+/// For tensors, the type is underspecified if the tensor is unranked.
+/// Any types comprising underspecified types is also underspecified.
+pub trait CheckUnderspecified {
+    fn is_underspecified(&self) -> bool;
+}
+
 pub type Dims = Vec<TDim>;
 
-pub type GenResult<T> = Result<T, &'static str>;
+pub type GenResult<T> = Result<T, String>;
 
 #[derive(Clone,Default)]
 pub struct Location {
@@ -52,14 +70,16 @@ pub struct Location {
 #[derive(Clone,Default,PartialEq)]
 pub struct Shape(Dims);
 
-pub type Symbol = String;
+#[derive(Clone,Default,Eq,Hash,PartialEq,PartialOrd)]
+pub struct Symbol(String);
 
-pub type TDim   = i64;
+pub type TDim   = u64;
 pub type TMlp   = f64;
 
 #[derive(Clone,Default,PartialEq)]
 pub enum Type {
     #[default]
+    Undef,
     Unit,
     Scalar(TypeBase),
     Sig(Box<TypeSignature>),
@@ -71,7 +91,11 @@ pub enum TypeBase {
     F64,
 }
 
-pub type TypeMap = HashMap<Symbol, Type>;
+#[derive(Clone,Default)]
+pub struct TypeMap {
+    functions: HashSet<Symbol>,
+    map: MultiMap<Symbol, Type>,
+}
 
 #[derive(Clone,PartialEq)]
 pub struct TypeSignature {
@@ -105,6 +129,7 @@ pub trait ExprDisplay {
     }
 }
 
+#[derive(Clone)]
 pub struct Expr {
     kind: ExprKind,
     id: ExprKindID,
@@ -129,6 +154,7 @@ pub enum ExprKindID {
     VarDecl,
 }
 
+#[derive(Clone)]
 pub enum ExprKind {
     Binop(BinopExpr),
     Call(CallExpr),
@@ -150,37 +176,43 @@ pub enum ExprKind {
 pub enum Binop {
     Add,
     Div,
+    MatMul,
     Mul,
     Sub,
 }
 
+#[derive(Clone)]
 pub struct BinopExpr {
     op: Binop,
-    lhs: Value,
-    rhs: Value,
+    lhs: SharedValue,
+    rhs: SharedValue,
 }
 
 #[derive(Clone,Copy,PartialEq,PartialOrd)]
 pub struct BinopPrecedence(u8);
 
+#[derive(Clone)]
 pub struct CallExpr {
-    args: Values,
+    args: SharedValues,
     name: String,
 }
 
+#[derive(Clone)]
 pub struct FunctionExpr {
-    proto: Value,
-    values: Values,
+    proto: SharedValue,
+    values: SharedValues,
 }
 
+#[derive(Clone)]
 pub struct LiteralExpr {
     shape: Shape,
-    values: Values,
+    values: SharedValues,
 }
 
+#[derive(Clone,Default)]
 pub struct ModuleExpr {
     name: String,
-    values: Values,
+    values: SharedValues,
 }
 
 #[derive(Clone)]
@@ -188,50 +220,64 @@ pub struct NumberExpr {
     value: TMlp,
 }
 
+#[derive(Clone)]
 pub struct PrintExpr {
-    value: Value,
+    value: SharedValue,
 }
 
+#[derive(Clone)]
 pub struct PrototypeExpr {
     name: String,
-    values: Values,
+    values: SharedValues,
 }
 
+#[derive(Clone)]
 pub struct ReturnExpr {
-    value: Option<Value>
+    value: Option<SharedValue>
 }
 
+#[derive(Clone)]
 pub struct TransposeExpr {
-    value: Value,
+    value: SharedValue,
 }
 
+pub type SharedValue = Rc<Expr>;
 pub type Value = Box<Expr>;
 
 pub struct Values(Vec<Value>);
 
+#[derive(Clone,Default)]
+pub struct SharedValues(Vec<SharedValue>);
+
 #[derive(Clone)]
 pub struct VarExpr {
     name: String,
+    is_param: bool,
 }
 
+#[derive(Clone)]
 pub struct VarDeclExpr {
     name: String,
     shape: Shape,
-    value: Value,
+    value: SharedValue,
 }
 
 ////////////////////////////////////////
 //  Ast implementation section
 ////////////////////////////////////////
 
-impl <U> AcceptGen<Expr, U> for Expr {
-    fn accept_gen(&self, generator: &mut dyn AstGenerator<Expr, U>, acc: Option<U>) -> GenResult<U> {
+impl <U, V> AcceptGen<Expr, U, V> for Expr {
+    fn accept_gen(
+        &self,
+        generator: &mut dyn AstGenerator<Expr, U, V>,
+        acc: U,
+    ) -> GenResult<V> {
         generator.gen(self, acc)
     }
 }
 
 impl AcceptVisit<Expr> for Expr {
-    fn accept(&self, visitor: &mut dyn AstVisitor<Expr>) -> bool {
+    fn accept_visit(&self, visitor: &mut dyn AstVisitor<Expr>) -> bool {
         visitor.visit(self)
     }
 }
@@ -247,6 +293,35 @@ impl Ast<Expr> for Expr {
 
     fn get_symbol(&self) -> Option<Symbol> {
         self.get_kind().get_symbol()
+    }
+}
+
+impl CheckUnderspecified for Type {
+    fn is_underspecified(&self) -> bool {
+        match self {
+            Type::Undef     => true,
+            Type::Unit      => false,
+            Type::Scalar(_) => false,
+            Type::Sig(t)    => t.is_underspecified(),
+            Type::Tensor(t) => t.is_underspecified(),
+        }
+    }
+}
+
+impl CheckUnderspecified for TypeSignature {
+    fn is_underspecified(&self) -> bool {
+        for param in self.get_params().iter() {
+            if param.is_underspecified() {
+                return true;
+            }
+        }
+        self.get_return().is_underspecified()
+    }
+}
+
+impl CheckUnderspecified for TypeTensor {
+    fn is_underspecified(&self) -> bool {
+        self.is_unranked()
     }
 }
 
@@ -270,12 +345,134 @@ impl Location {
 }
 
 impl Shape {
-    pub fn new(dims: Dims) -> Self {
-        Shape{0: dims}
+    pub fn new(dims: &Dims) -> Self {
+        Shape{0: dims.clone()}
     }
 
     pub fn get(&self) -> &Dims {
         &self.0
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn rank(&self) -> usize {
+        self.get().len()
+    }
+
+    /// Get a new shape with the same dimensions, but removing the first `n` dimensions.
+    /// Given a shape with rank `N > 0`, the new rank of the shape is `max(1, N-n)`.
+    pub fn all_but_first(&self, n: usize) -> Self {
+        if self.is_empty() || n == 0 {
+            return self.clone();
+        }
+        let N = self.rank();
+        Self::new(&self.get()[cmp::max(1, N - n)..].to_vec())
+    }
+
+    /// Get a new shape with the same dimensions, but removing the final `n` dimensions.
+    /// Given a shape with rank `N > 0`, the new rank of the shape is `max(1, N-n)`.
+    pub fn all_but_last(&self, n: usize) -> Self {
+        if self.is_empty() || n == 0 {
+            return self.clone();
+        }
+        let N = self.rank();
+        Self::new(&self.get()[..cmp::max(1, N - n)].to_vec())
+    }
+
+    /// Get a new shape with the same dimensions, but keeping the first `n` dimensions.
+    /// Given a shape with rank `N > 0`, the new rank of the shape is `min(N, max(1, n))`
+    pub fn first(&self, n: usize) -> Self {
+        if self.is_empty() || n == 0 {
+            return Self::default();
+        }
+        let N = self.rank();
+        if n == N {
+            return self.clone();
+        }
+        Self::new(&self.get()[..cmp::min(n, N)].to_vec())
+    }
+
+    /// Get a new shape of rank 1 with dimesnions equal to the product of the all the ranks.
+    pub fn flatten(&self) -> Self {
+        if self.is_empty() || self.rank() <= 1 {
+            self.clone();
+        }
+        Self::new(&vec![self.get().iter().product()])
+    }
+
+    /// Get a new shape with the same dimensions, but keeping the last `n` dimensions.
+    /// Given a shape with rank `N > 0`, the new rank of the shape is `min(N, max(1, n))`.
+    pub fn last(&self, n: usize) -> Self {
+        if self.is_empty() || n == 0 {
+            return Self::default();
+        }
+        let N = self.rank();
+        if n == N {
+            return self.clone();
+        }
+        Self::new(&self.get()[cmp::min(n, N - 1)..].to_vec())
+    }
+
+    /// Returns true if the flattened (rank 1) shape of each input are equal.
+    pub fn matches(&self, other: &Self) -> bool {
+        let dim: TDim = self.get().iter().product();
+        let dim_other: TDim = other.get().iter().product();
+        dim == dim_other
+    }
+
+    /// Get the number of matching inner dimensions of two shapes.
+    /// The input shapes should be of the same rank, otherwise None.
+    pub fn matching_inner_rank(&self, other: &Self) -> Option<usize> {
+        if self.is_empty() || other.is_empty() || self.rank() != other.rank() {
+            return None;
+        } else {
+            let a = self.last(1);
+            let b = other.all_but_last(1);
+            let n: usize = iter::zip(a.get().iter(), b.get().iter()).filter(|(a, b)| a == b).count();
+            if n > 0 { Some(n) } else { None }
+        }
+    }
+
+    /// Get a new shape from the outer product of this and another shape.
+    pub fn outer_product(&self, other: &Self) -> Self {
+        let dims: Dims = self.get().iter().chain(other.get().iter()).cloned().collect();
+        Shape::new(&dims)
+    }
+
+    pub fn transpose(&self) -> Self {
+        Shape::new(&self.get().iter().rev().copied().collect())
+    }
+}
+
+impl Symbol {
+    pub fn new(s: &str) -> Self {
+        Symbol{0: s.to_string()}
+    }
+
+    pub fn new_function(s: &str) -> Self {
+        Symbol::new(&format!("{}(_)", s))
+    }
+
+    pub fn new_internal(s: &str) -> Self {
+        Symbol::new(&format!(",,{}", s))
+    }
+
+    pub fn is_function(&self) -> bool {
+        self.0.rfind("(_)").is_some()
+    }
+
+    pub fn is_internal(&self) -> bool {
+        self.0.find(",,").is_some()
+    }
+
+    pub fn to_function(&self) -> Self {
+        if self.is_function() {
+            self.clone()
+        } else {
+            Self::new_function(&self.0)
+        }
     }
 }
 
@@ -292,8 +489,38 @@ impl Type {
         Self::Tensor(t)
     }
 
-    pub fn is_unit(&self) -> bool {
-        *self == Type::Unit
+    pub fn new_unit() -> Self {
+        Self::Unit
+    }
+
+    pub fn any_mismatch(slice: &[Type]) -> bool {
+        if slice.is_empty() {
+            return false;
+        }
+        let t = &slice[0];
+        for u in slice[1..].iter() {
+            if *t != *u {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn get_type(&self) -> Option<TypeBase> {
+        match self {
+            Type::Undef     => None,
+            Type::Unit      => None,
+            Type::Scalar(t) => Some(t.clone()),
+            Type::Sig(t)    => t.get_return().get_type(),
+            Type::Tensor(t) => Some(t.get_type()),
+        }
+    }
+
+    pub fn is_prototype(&self) -> bool {
+        match self {
+            Type::Sig(t)    => t.is_prototype(),
+            _               => false,
+        }
     }
 
     pub fn is_scalar(&self) -> bool {
@@ -316,6 +543,36 @@ impl Type {
             _               => false,
         }
     }
+
+    pub fn is_undef(&self) -> bool {
+        *self == Type::Undef
+    }
+
+    pub fn is_unit(&self) -> bool {
+        *self == Type::Unit
+    }
+
+    pub fn mat_mul(a: &Self, b: &Self) -> Self {
+        eprintln!("Warning: Matrix multiplication for tensors is experimental and likely buggy");
+        if a.is_tensor() && b.is_tensor() {
+            let Type::Tensor(t_a) = a else { exit(ExitCode::AstError); };
+            let Type::Tensor(t_b) = b else { exit(ExitCode::AstError); };
+            Type::new_tensor(TypeTensor::mat_mul(t_a, t_b))
+        } else {
+            eprintln!("Unexpected input types '{}' and '{}' for matrix multiply", a, b);
+            exit(ExitCode::AstError);
+        }
+    }
+
+    pub fn transpose(&self) -> Option<Self> {
+        match self {
+            Type::Undef     => None,
+            Type::Unit      => None,
+            Type::Scalar(t) => Some(Type::new_scalar(t.clone())),
+            Type::Sig(_)    => None,
+            Type::Tensor(t) => Some(Self::new_tensor(t.transpose())),
+        }
+    }
 }
 
 impl TypeBase {
@@ -323,7 +580,7 @@ impl TypeBase {
         Self::F64
     }
 
-    pub fn isa(&self, t: TypeBase) -> bool {
+    pub fn is(&self, t: TypeBase) -> bool {
         *self == t
     }
 
@@ -332,31 +589,97 @@ impl TypeBase {
     }
 }
 
+impl TypeMap {
+    pub fn new() -> Self {
+        TypeMap{functions: Default::default(), map: Default::default()}
+    }
+
+    pub fn add_type(&mut self, sym: &Symbol, t: &Type) -> Result<(), String> {
+        if !sym.is_internal() && t.is_signature() {
+            if sym.is_function() {
+                self.functions.insert(sym.clone());
+            } else {
+                Err(format!(
+                    "Attempted to specialize non-function '{}' with signature '{}'", sym, t
+                ))?
+            }
+        }
+        self.map.insert(sym.clone(), t.clone());
+        Ok(())
+    }
+
+    pub fn contains_symbol(&self, sym: &Symbol) -> bool {
+        self.map.contains_key(sym) && !self.map.get_vec(sym).unwrap().is_empty()
+    }
+
+    /// MultiMap preserves the insertion order for value types: Get the last in the list.
+    pub fn get_latest_type(&self, sym: &Symbol) -> Result<Type, String> {
+        match self.map.get_vec(sym) {
+            None    => Err(format!("Expected types defined for symbol '{}'", sym)),
+            Some(v) => {
+                let n = v.len();
+                Ok(v[n - 1].clone())
+            },
+        }
+    }
+
+    pub fn get_types(&self, sym: &Symbol) -> Result<&Vec<Type>, String> {
+        match self.map.get_vec(sym) {
+            Some(v) => Ok(v),
+            None    => Err(format!("Expected types defined for symbol '{}'", sym)),
+        }
+    }
+
+    pub fn iter(&self) -> multimap::Iter<'_, Symbol, Type> {
+        self.map.iter()
+    }
+
+    /// MultiMap preserves the insertion order for value types: Pop and return the last in the list.
+    pub fn pop_latest_type(&mut self, sym: &Symbol) -> Result<Option<Type>, String> {
+        match self.map.get_vec_mut(sym) {
+            None    => Err(format!("Expected types defined for symbol '{}'", sym)),
+            Some(v) => Ok(v.pop()),
+        }
+    }
+
+    fn is_function(&self, sym: &Symbol) -> bool {
+        sym.is_function() && self.contains_symbol(sym) && self.functions.contains(sym)
+    }
+}
+
 impl TypeSignature {
     pub fn new(params: Vec<Type>, ret: Type) -> Self {
         TypeSignature{params, ret}
+    }
+
+    pub fn new_prototype(params: Vec<Type>) -> Self {
+        TypeSignature::new(params, Type::default())
+    }
+
+    pub fn is_prototype(&self) -> bool {
+        self.get_return().is_undef()
     }
 
     pub fn get_params(&self) -> &Vec<Type> {
         &self.params
     }
 
-    pub fn get_type(&self) -> &Type {
+    pub fn get_return(&self) -> &Type {
         &self.ret
     }
 
     pub fn has_return(&self) -> bool {
-        self.get_type().is_unit()
+        !self.get_return().is_unit() && !self.get_return().is_undef()
     }
 }
 
 impl TypeTensor {
-    pub fn new(shape: Shape, t: TypeBase) -> Self {
-        TypeTensor{shape, t}
+    pub fn new(shape: &Shape, t: TypeBase) -> Self {
+        TypeTensor{shape: shape.clone(), t}
     }
 
     pub fn new_unranked(t: TypeBase) -> Self {
-        Self::new(Default::default(), t)
+        Self::new(&Default::default(), t)
     }
 
     pub fn get_shape(&self) -> &Shape {
@@ -368,7 +691,37 @@ impl TypeTensor {
     }
 
     pub fn is_unranked(&self) -> bool {
-        self.shape.get().is_empty()
+        self.get_shape().is_empty()
+    }
+
+    pub fn mat_mul(a: &Self, b: &Self) -> Self {
+        let t_a = a.get_type();
+        let t_b = b.get_type();
+        if t_a != t_b {
+            eprintln!("Unexpected unmatched base types '{}' and '{}' for matrix multiply", t_a, t_b);
+            exit(ExitCode::AstError);
+        } else if a.is_unranked() || b.is_unranked() {
+            eprintln!("Unexpected unranked tensor '{}' or '{}' for matrix multiply", a, b);
+            exit(ExitCode::AstError);
+        }
+        let shape_a = a.get_shape();
+        let shape_b = b.get_shape();
+        let mut dims: Dims = Dims::new();
+        let N = shape_a.rank();
+        let n = match shape_a.matching_inner_rank(shape_b) {
+            Some(n) => n,
+            None    => {
+                eprintln!("Mismatched tensor shapes '{}' and '{}' for matrix multiply", shape_a, shape_b);
+                exit(ExitCode::AstError);
+            },
+        };
+        dims.append(&mut shape_a.all_but_last(n).get().clone());
+        dims.append(&mut shape_b.last(N - n).get().clone());
+        Self::new(&Shape::new(&dims), t_a)
+    }
+
+    pub fn rank(&self) -> usize {
+        self.get_shape().rank()
     }
 
     pub fn set_rank(&mut self, shape: &Shape) -> () {
@@ -379,31 +732,38 @@ impl TypeTensor {
             exit(ExitCode::AstError);
         }
     }
+
+    pub fn transpose(&self) -> Self {
+        TypeTensor::new(&self.get_shape().transpose(), self.t)
+    }
 }
 
 ////////////////////////////////////////
 //  Expr implementation section
 ////////////////////////////////////////
 
-pub fn binop_from_str(op: &str) -> Binop {
-    match op {
-        "-" => Binop::Sub,
-        "+" => Binop::Add,
-        "/" => Binop::Div,
-        "*" => Binop::Mul,
-        _   => {
-            eprintln!("Unexpected op string '{}'", op);
-            exit(ExitCode::AstError);
-        },
+impl Binop {
+    pub fn from_str(op: &str) -> Self {
+        match op {
+            "+"     => Binop::Add,
+            "/"     => Binop::Div,
+            ".*"    => Binop::MatMul,
+            "*"     => Binop::Mul,
+            "-"     => Binop::Sub,
+            _   => {
+                eprintln!("Unexpected op string '{}'", op);
+                exit(ExitCode::AstError);
+            },
+        }
     }
 }
 
 impl BinopExpr {
-    pub fn new(op: Binop, lhs: Value, rhs: Value) -> Self {
+    pub fn new(op: Binop, lhs: SharedValue, rhs: SharedValue) -> Self {
         BinopExpr{op, lhs, rhs}
     }
 
-    pub fn get_lhs(&self) -> &Value {
+    pub fn get_lhs(&self) -> &SharedValue {
         &self.lhs
     }
 
@@ -415,18 +775,29 @@ impl BinopExpr {
         BinopPrecedence::new(self.op)
     }
 
-    pub fn get_rhs(&self) -> &Value {
+    pub fn get_rhs(&self) -> &SharedValue {
         &self.rhs
+    }
+
+    pub fn get_symbol(&self) -> Symbol {
+        Symbol::new_function(match self.get_op() {
+            Binop::Add      => "add",
+            Binop::Div      => "div",
+            Binop::MatMul   => "matmul",
+            Binop::Mul      => "mul",
+            Binop::Sub      => "sub",
+        })
     }
 }
 
 impl BinopPrecedence {
     pub fn new(op: Binop) -> Self {
         BinopPrecedence{0: match op {
-            Binop::Add => 20,
-            Binop::Div => 40,
-            Binop::Mul => 40,
-            Binop::Sub => 20,
+            Binop::Add      => 20,
+            Binop::Div      => 40,
+            Binop::MatMul   => 80,
+            Binop::Mul      => 40,
+            Binop::Sub      => 20,
         }}
     }
 
@@ -443,11 +814,11 @@ impl Default for BinopPrecedence {
 }
 
 impl CallExpr {
-    pub fn new(name: String, args: Values) -> Self {
-        CallExpr{name, args}
+    pub fn new(name: String, args: &SharedValues) -> Self {
+        CallExpr{name, args: args.clone()}
     }
 
-    pub fn get_args(&self) -> &Values {
+    pub fn get_args(&self) -> &SharedValues {
         &self.args
     }
 
@@ -456,21 +827,25 @@ impl CallExpr {
     }
 
     pub fn get_symbol(&self) -> Symbol {
-        self.get_callee().clone()
+        Symbol::new_function(self.get_callee())
     }
 }
 
 impl FunctionExpr {
-    pub fn new(proto: Value, values: Values) -> Self {
-        FunctionExpr{proto, values}
+    pub fn new(proto: SharedValue, values: &SharedValues) -> Self {
+        FunctionExpr{proto, values: values.clone()}
     }
 
-    pub fn get_body(&self) -> &Values {
+    pub fn get_body(&self) -> &SharedValues {
         &self.values
     }
 
-    pub fn get_prototype(&self) -> &Value {
+    pub fn get_prototype(&self) -> &SharedValue {
         &self.proto
+    }
+
+    pub fn get_name(&self) -> &String {
+        self.proto.get_kind().to_prototype().unwrap().get_name()
     }
 
     pub fn get_symbol(&self) -> Symbol {
@@ -479,25 +854,25 @@ impl FunctionExpr {
 }
 
 impl LiteralExpr {
-    pub fn new(shape: Shape, values: Values) -> Self {
-        LiteralExpr{shape, values}
+    pub fn new(shape: &Shape, values: &SharedValues) -> Self {
+        LiteralExpr{shape: shape.clone(), values: values.clone()}
     }
 
     pub fn get_shape(&self) -> &Shape {
         &self.shape
     }
 
-    pub fn get_values(&self) -> &Values {
+    pub fn get_values(&self) -> &SharedValues {
         &self.values
     }
 }
 
 impl ModuleExpr {
-    pub fn new(name: String, values: Values) -> Self {
-        ModuleExpr{name, values}
+    pub fn new(name: String, values: &SharedValues) -> Self {
+        ModuleExpr{name, values: values.clone()}
     }
 
-    pub fn get_functions(&self) -> &Values {
+    pub fn get_functions(&self) -> &SharedValues {
         &self.values
     }
 
@@ -506,13 +881,7 @@ impl ModuleExpr {
     }
 
     pub fn get_symbol(&self) -> Symbol {
-        self.get_name().clone()
-    }
-}
-
-impl Default for ModuleExpr {
-    fn default() -> Self {
-        ModuleExpr::new(String::new(), Values(Vec::new()))
+        Symbol::new(self.get_name())
     }
 }
 
@@ -527,25 +896,25 @@ impl NumberExpr {
 }
 
 impl PrintExpr {
-    pub fn new(value: Value) -> Self {
+    pub fn new(value: SharedValue) -> Self {
         PrintExpr{value}
     }
 
     pub fn get_symbol(&self) -> Symbol {
-        "print".to_string()
+        Symbol::new_function("print")
     }
 
-    pub fn get_value(&self) -> &Value {
+    pub fn get_value(&self) -> &SharedValue {
         &self.value
     }
 }
 
 impl PrototypeExpr {
-    pub fn new(name: String, values: Values) -> Self {
-        PrototypeExpr{name, values}
+    pub fn new(name: String, values: &SharedValues) -> Self {
+        PrototypeExpr{name, values: values.clone()}
     }
 
-    pub fn get_args(&self) -> &Values {
+    pub fn get_args(&self) -> &SharedValues {
         &self.values
     }
 
@@ -554,16 +923,20 @@ impl PrototypeExpr {
     }
 
     pub fn get_symbol(&self) -> Symbol {
-        self.get_name().clone()
+        Symbol::new_function(self.get_name())
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty()
     }
 }
 
 impl ReturnExpr {
-    pub fn new(value: Option<Value>) -> Self {
+    pub fn new(value: Option<SharedValue>) -> Self {
         ReturnExpr{value}
     }
 
-    pub fn get_value(&self) -> &Option<Value> {
+    pub fn get_value(&self) -> &Option<SharedValue> {
         &self.value
     }
 
@@ -573,15 +946,15 @@ impl ReturnExpr {
 }
 
 impl TransposeExpr {
-    pub fn new(value: Value) -> Self {
+    pub fn new(value: SharedValue) -> Self {
         TransposeExpr{value}
     }
 
     pub fn get_symbol(&self) -> Symbol {
-        "transpose".to_string()
+        Symbol::new_function("transpose")
     }
 
-    pub fn get_value(&self) -> &Value {
+    pub fn get_value(&self) -> &SharedValue {
         &self.value
     }
 }
@@ -624,9 +997,41 @@ impl Default for Values {
     }
 }
 
+impl SharedValues {
+    pub fn new(values: Vec<SharedValue>) -> Self {
+        SharedValues{0: values}
+    }
+
+    pub fn get(&self, i: usize) -> &SharedValue {
+        match self.0.get(i) {
+            Some(value) => value,
+            None        => {
+                eprintln!("Expected value at pos '{}'", i);
+                exit(ExitCode::AstError);
+            },
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn iter(&self) -> slice::Iter<SharedValue> {
+        self.0.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn push(&mut self, value: SharedValue) -> () {
+        self.0.push(value)
+    }
+}
+
 impl VarExpr {
-    pub fn new(name: String) -> Self {
-        VarExpr{name}
+    pub fn new(name: String, is_param: bool) -> Self {
+        VarExpr{name, is_param}
     }
 
     pub fn get_name(&self) -> &String {
@@ -634,12 +1039,16 @@ impl VarExpr {
     }
 
     pub fn get_symbol(&self) -> Symbol {
-        self.get_name().clone()
+        Symbol::new(self.get_name())
+    }
+
+    pub fn is_param(&self) -> bool {
+        self.is_param
     }
 }
 
 impl VarDeclExpr {
-    pub fn new(name: String, shape: Shape, value: Value) -> Self {
+    pub fn new(name: String, shape: Shape, value: SharedValue) -> Self {
         VarDeclExpr{name, shape, value}
     }
 
@@ -652,10 +1061,10 @@ impl VarDeclExpr {
     }
 
     pub fn get_symbol(&self) -> Symbol {
-        self.get_name().clone()
+        Symbol::new(self.get_name())
     }
 
-    pub fn get_value(&self) -> &Value {
+    pub fn get_value(&self) -> &SharedValue {
         &self.value
     }
 
@@ -665,6 +1074,10 @@ impl VarDeclExpr {
 }
 
 impl Expr {
+    pub fn as_shared(&self) -> SharedValue {
+        Rc::from(self.clone())
+    }
+
     pub fn as_value(&mut self) -> Value {
         Value::new(mem::take(self))
     }
@@ -677,8 +1090,20 @@ impl Expr {
         self.id
     }
 
-    pub fn isa(&self, id: ExprKindID) -> bool {
+    pub fn is(&self, id: ExprKindID) -> bool {
         self.get_kind_id() == id
+    }
+
+    #[allow(dead_code)]
+    pub fn is_one_of(&self, ks: &[ExprKindID]) -> bool {
+        fn f(t: &Expr, acc: bool, _ks: &[ExprKindID]) -> bool {
+            match _ks {
+                []              => acc,
+                [k]             => acc || t.is(*k),
+                [k, tail @ ..]  => f(t, acc || t.is(*k), tail),
+            }
+        }
+        f(self, false, ks)
     }
 
     pub fn new(kind: ExprKind, id: ExprKindID, loc: Location) -> Self {
@@ -686,27 +1111,27 @@ impl Expr {
     }
 
     /// Convenience initializer for ExprKind::Binop
-    pub fn new_binop(op: Binop, lhs: Value, rhs: Value, loc: Location) -> Self {
+    pub fn new_binop(op: Binop, lhs: SharedValue, rhs: SharedValue, loc: Location) -> Self {
         Expr::new(ExprKind::Binop(BinopExpr::new(op, lhs, rhs)), ExprKindID::Binop, loc)
     }
 
     /// Convenience initializer for ExprKind::Call
-    pub fn new_call(name: String, args: Values, loc: Location) -> Self {
+    pub fn new_call(name: String, args: &SharedValues, loc: Location) -> Self {
         Expr::new(ExprKind::Call(CallExpr::new(name, args)), ExprKindID::Call, loc)
     }
 
     /// Convenience initializer for ExprKind::Function
-    pub fn new_function(proto: Value, values: Values, loc: Location) -> Self {
+    pub fn new_function(proto: SharedValue, values: &SharedValues, loc: Location) -> Self {
         Expr::new(ExprKind::Function(FunctionExpr::new(proto, values)), ExprKindID::Function, loc)
     }
 
     /// Convenience initializer for ExprKind::Literal
-    pub fn new_literal(shape: Shape, values: Values, loc: Location) -> Self {
+    pub fn new_literal(shape: &Shape, values: &SharedValues, loc: Location) -> Self {
         Expr::new(ExprKind::Literal(LiteralExpr::new(shape, values)), ExprKindID::Literal, loc)
     }
 
     /// Convenience initializer for ExprKind::Module
-    pub fn new_module(name: String, values: Values, loc: Location) -> Self {
+    pub fn new_module(name: String, values: &SharedValues, loc: Location) -> Self {
         Expr::new(ExprKind::Module(ModuleExpr::new(name, values)), ExprKindID::Module, loc)
     }
 
@@ -715,33 +1140,38 @@ impl Expr {
         Expr::new(ExprKind::Number(NumberExpr::new(value)), ExprKindID::Number, loc)
     }
 
+    /// Convenience initializer for ExprKind::Var which is a parameter
+    pub fn new_param(name: String, loc: Location) ->  Self {
+        Expr::new(ExprKind::Var(VarExpr::new(name, true)), ExprKindID::Var, loc)
+    }
+
     /// Convenience initializer for ExprKind::Print
-    pub fn new_print(value: Value, loc: Location) -> Self {
+    pub fn new_print(value: SharedValue, loc: Location) -> Self {
         Expr::new(ExprKind::Print(PrintExpr::new(value)), ExprKindID::Print, loc)
     }
 
     /// Convenience initializer for ExprKind::Prototype
-    pub fn new_prototype(name: String, values: Values, loc: Location) -> Self {
+    pub fn new_prototype(name: String, values: &SharedValues, loc: Location) -> Self {
         Expr::new(ExprKind::Prototype(PrototypeExpr::new(name, values)), ExprKindID::Prototype, loc)
     }
 
     /// Convenience initializer for ExprKind::Return
-    pub fn new_return(value: Option<Value>, loc: Location) -> Self {
+    pub fn new_return(value: Option<SharedValue>, loc: Location) -> Self {
         Expr::new(ExprKind::Return(ReturnExpr::new(value)), ExprKindID::Return, loc)
     }
 
     /// Convenience initializer for ExprKind::Transpose
-    pub fn new_transpose(value: Value, loc: Location) -> Self {
+    pub fn new_transpose(value: SharedValue, loc: Location) -> Self {
         Expr::new(ExprKind::Transpose(TransposeExpr::new(value)), ExprKindID::Transpose, loc)
     }
 
     /// Convenience initializer for ExprKind::Var
     pub fn new_var(name: String, loc: Location) ->  Self {
-        Expr::new(ExprKind::Var(VarExpr::new(name)), ExprKindID::Var, loc)
+        Expr::new(ExprKind::Var(VarExpr::new(name, false)), ExprKindID::Var, loc)
     }
 
     /// Convenience initializer for ExprKind::VarDecl
-    pub fn new_var_decl(name: String, shape: Shape, value: Value, loc: Location) -> Self {
+    pub fn new_var_decl(name: String, shape: Shape, value: SharedValue, loc: Location) -> Self {
         Expr::new(ExprKind::VarDecl(VarDeclExpr::new(name, shape, value)), ExprKindID::VarDecl, loc)
     }
 }
@@ -755,7 +1185,7 @@ impl Default for Expr {
 impl ExprKind {
     pub fn get_symbol(&self) -> Option<Symbol> {
         match self {
-            ExprKind::Binop(expr)       => None,
+            ExprKind::Binop(expr)       => Some(expr.get_symbol()),
             ExprKind::Call(expr)        => Some(expr.get_symbol()),
             ExprKind::Function(expr)    => Some(expr.get_symbol()),
             ExprKind::Literal(expr)     => None,
@@ -863,10 +1293,11 @@ impl ExprKind {
 impl fmt::Display for Binop {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", match self {
-            Binop::Add  => "+",
-            Binop::Div  => "/",
-            Binop::Mul  => "*",
-            Binop::Sub  => "-",
+            Binop::Add      => "+",
+            Binop::Div      => "/",
+            Binop::MatMul   => ".*",
+            Binop::Mul      => "*",
+            Binop::Sub      => "-",
         })
     }
 }
@@ -1024,6 +1455,31 @@ impl ExprDisplay for ReturnExpr {
     }
 }
 
+impl ExprDisplay for SharedValues {
+    fn expr_fmt(&self, f: &mut fmt::Formatter, depth: usize, _loc: &Location) -> fmt::Result {
+        if !self.is_empty() {
+            let indent = Self::indent(depth);
+            let is_num = self.0.get(0).unwrap().is(ExprKindID::Number);
+            let (d, sep) = if is_num {
+                write!(f, "{}", indent)?;
+                (0, ", ")
+            } else {
+                (depth, "\n")
+            };
+            for (i, value) in self.0.iter().enumerate() {
+                value.get_kind().expr_fmt(f, d, value.get_loc())?;
+                if i < self.0.len() - 1 {
+                    write!(f, "{}", sep)?;
+                    if is_num && i % 16 == 15 {
+                        write!(f, "\n{}", indent)?;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 impl fmt::Display for Shape {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "<{}>", self.0
@@ -1035,9 +1491,16 @@ impl fmt::Display for Shape {
     }
 }
 
+impl fmt::Display for Symbol {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", match self {
+            Type::Undef         => "undef".to_string(),
             Type::Unit          => "()".to_string(),
             Type::Scalar(t)     => t.to_string(),
             Type::Sig(t_box)    => t_box.to_string(),
@@ -1064,7 +1527,7 @@ impl fmt::Display for TypeSignature {
                 write!(f, ", ")?;
             }
         }
-        write!(f, " -> {})", self.get_type())
+        write!(f, " -> {})", self.get_return())
     }
 }
 
@@ -1098,7 +1561,7 @@ impl ExprDisplay for Values {
     fn expr_fmt(&self, f: &mut fmt::Formatter, depth: usize, _loc: &Location) -> fmt::Result {
         if !self.is_empty() {
             let indent = Self::indent(depth);
-            let is_num = self.0.get(0).unwrap().isa(ExprKindID::Number);
+            let is_num = self.0.get(0).unwrap().is(ExprKindID::Number);
             let (d, sep) = if is_num {
                 write!(f, "{}", indent)?;
                 (0, ", ")

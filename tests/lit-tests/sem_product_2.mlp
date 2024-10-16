@@ -1,0 +1,102 @@
+// RUN: not @mlpc -v=sem --sem %s 2>&1 | @filecheck %s
+
+def test() {
+    var a<3,2> = [[1, 2], [3, 4], [5, 6]];
+    var b<3,3> = [[1, 2, 3], [4, 5, 6], [7, 8, 9]];
+
+    // Result returned is inner dimension mismatch 2 != 3
+    return a .* b;
+}
+
+// CHECK: Running DeclCheck on module '[[SRC_PATH]]'
+// CHECK: Added symbol 'a' to scope
+// CHECK: Added symbol 'b' to scope
+// CHECK: Found symbol 'matmul(_)' in scope
+// CHECK: Found symbol 'a' in scope
+// CHECK: Found symbol 'b' in scope
+// CHECK: Removed symbol 'a' from scope
+// CHECK: Removed symbol 'b' from scope
+// CHECK: Added symbol 'test(_)' to scope
+// CHECK: Removed symbol 'test(_)' from scope
+
+// CHECK: Running TypeCheck on module '[[SRC_PATH]]'
+// CHECK: Processing Function 'test' @[[SRC_PATH]]:3:5
+// CHECK: Processing VarDecl 'a' @[[SRC_PATH]]:4:5
+// CHECK: Inferring type for 'a'
+// CHECK: Asserting shape is '<3,2>'
+// CHECK: Processing Literal @[[SRC_PATH]]:4:18
+// CHECK: Asserting shape is '<3,2>'
+// CHECK: Processing Literal @[[SRC_PATH]]:4:19
+// CHECK: Asserting shape is '<2>'
+// CHECK: Processing Number '1' @[[SRC_PATH]]:4:20
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '2' @[[SRC_PATH]]:4:23
+// CHECK: Is type 'f64'
+// CHECK: Shape '<2>' for literal is correct
+// CHECK: Is type '<2xf64>'
+// CHECK: Processing Literal @[[SRC_PATH]]:4:27
+// CHECK: Asserting shape is '<2>'
+// CHECK: Processing Number '3' @[[SRC_PATH]]:4:28
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '4' @[[SRC_PATH]]:4:31
+// CHECK: Is type 'f64'
+// CHECK: Shape '<2>' for literal is correct
+// CHECK: Is type '<2xf64>'
+// CHECK: Processing Literal @[[SRC_PATH]]:4:35
+// CHECK: Asserting shape is '<2>'
+// CHECK: Processing Number '5' @[[SRC_PATH]]:4:36
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '6' @[[SRC_PATH]]:4:39
+// CHECK: Is type 'f64'
+// CHECK: Shape '<2>' for literal is correct
+// CHECK: Is type '<2xf64>'
+// CHECK: Shape '<3,2>' for literal is correct
+// CHECK: Is type '<3x2xf64>'
+// CHECK: Shape '<3,2>' for 'a' is correct
+// CHECK: Setting type for 'a' to '<3x2xf64>'
+// CHECK: Processing VarDecl 'b' @[[SRC_PATH]]:5:5
+// CHECK: Inferring type for 'b'
+// CHECK: Asserting shape is '<3,3>'
+// CHECK: Processing Literal @[[SRC_PATH]]:5:18
+// CHECK: Asserting shape is '<3,3>'
+// CHECK: Processing Literal @[[SRC_PATH]]:5:19
+// CHECK: Asserting shape is '<3>'
+// CHECK: Processing Number '1' @[[SRC_PATH]]:5:20
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '2' @[[SRC_PATH]]:5:23
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '3' @[[SRC_PATH]]:5:26
+// CHECK: Is type 'f64'
+// CHECK: Shape '<3>' for literal is correct
+// CHECK: Is type '<3xf64>'
+// CHECK: Processing Literal @[[SRC_PATH]]:5:30
+// CHECK: Asserting shape is '<3>'
+// CHECK: Processing Number '4' @[[SRC_PATH]]:5:31
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '5' @[[SRC_PATH]]:5:34
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '6' @[[SRC_PATH]]:5:37
+// CHECK: Is type 'f64'
+// CHECK: Shape '<3>' for literal is correct
+// CHECK: Is type '<3xf64>'
+// CHECK: Processing Literal @[[SRC_PATH]]:5:41
+// CHECK: Asserting shape is '<3>'
+// CHECK: Processing Number '7' @[[SRC_PATH]]:5:42
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '8' @[[SRC_PATH]]:5:45
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '9' @[[SRC_PATH]]:5:48
+// CHECK: Is type 'f64'
+// CHECK: Shape '<3>' for literal is correct
+// CHECK: Is type '<3xf64>'
+// CHECK: Shape '<3,3>' for literal is correct
+// CHECK: Is type '<3x3xf64>'
+// CHECK: Shape '<3,3>' for 'b' is correct
+// CHECK: Setting type for 'b' to '<3x3xf64>'
+// CHECK: Processing Return @[[SRC_PATH]]:8:5
+// CHECK: Processing Binop '.*' @[[SRC_PATH]]:8:14
+// CHECK: Processing Var 'a' @[[SRC_PATH]]:8:12
+// CHECK: Is type '<3x2xf64>'
+// CHECK: Processing Var 'b' @[[SRC_PATH]]:8:17
+// CHECK: Is type '<3x3xf64>'
+// CHECK: Mismatched tensor shapes '<3,2>' and '<3,3>' for matrix multiply

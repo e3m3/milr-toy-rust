@@ -32,6 +32,7 @@ pub enum TokenKind {
     Comment,
     Colon,
     Def,
+    DotStar,
     Eoi,
     Eol,
     Ident,
@@ -63,6 +64,7 @@ impl fmt::Display for TokenKind {
             TokenKind::Comment      => "Comment",
             TokenKind::Colon        => "Colon",
             TokenKind::Def          => "Def",
+            TokenKind::DotStar      => "DotStar",
             TokenKind::Eoi          => "Eoi",
             TokenKind::Eol          => "Eol",
             TokenKind::Ident        => "Ident",
@@ -254,6 +256,13 @@ impl <'a, T: Read> Lexer<'a, T> {
         if Self::is_whitespace(c) {
             self.form_token(t, pos_start, pos_start + 1, TokenKind::Eol);
         } else if Self::is_digit(c) || Self::is_dot(c) {
+            if Self::is_dot(c) && self.has_next_in_line(pos_start + 1) {
+                let c_next = self.next_char_in_line(pos_start + 1);
+                if Self::is_star(c_next) {
+                    self.form_token(t, pos_start, pos_start + 2, TokenKind::DotStar);
+                    return;
+                }
+            }
             if c == '0' && self.has_next_in_line(pos_start + 1) {
                 c = self.next_char_in_line(pos_start + 1);
                 if c == 'x' {
@@ -354,6 +363,10 @@ impl <'a, T: Read> Lexer<'a, T> {
 
     fn is_slash(c: char) -> bool {
         c == '/'
+    }
+
+    fn is_star(c: char) -> bool {
+        c == '*'
     }
 
     fn is_other(c: char) -> bool {

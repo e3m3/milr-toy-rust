@@ -1,0 +1,32 @@
+// RUN: @mlpc --ast --parse %s 2>&1 | @filecheck %s
+
+def foo() {
+    return 10;
+}
+
+def main() {
+    print(foo());
+    var foo<> = [1, 2, 3];
+    print(foo);
+}
+
+// CHECK:   AST:
+// CHECK:   Module '[[SRC_PATH]]':
+// CHECK:     Proto 'foo' @[[SRC_PATH]]:3:5
+// CHECK:     Params: []
+// CHECK:     Block {
+// CHECK:       Return: @[[SRC_PATH]]:4:5
+// CHECK:         10
+// CHECK:     } // Block
+// CHECK:     Proto 'main' @[[SRC_PATH]]:7:5
+// CHECK:     Params: []
+// CHECK:     Block {
+// CHECK:       Print: @[[SRC_PATH]]:8:5
+// CHECK:         Call 'foo': @[[SRC_PATH]]:8:11
+// CHECK:       VarDecl: foo<> @[[SRC_PATH]]:9:5
+// CHECK:         Literal: <3>[ @[[SRC_PATH]]:9:
+// CHECK:           1, 2, 3
+// CHECK:         ] // Literal
+// CHECK:       Print: @[[SRC_PATH]]:10:5
+// CHECK:         Var: foo @[[SRC_PATH]]:10:11
+// CHECK:     } // Block

@@ -1,0 +1,29 @@
+// RUN: @mlpc --verbose=sem --sem %s 2>&1 | @filecheck %s
+
+def test() {
+    var a = 2.0;
+    print(a);
+}
+
+// CHECK: Running DeclCheck on module '[[SRC_PATH]]'
+// CHECK: Added symbol 'a' to scope
+// CHECK: Found symbol 'print(_)' in scope
+// CHECK: Found symbol 'a' in scope
+// CHECK: Removed symbol 'a' from scope
+// CHECK: Added symbol 'test(_)' to scope
+// CHECK: Removed symbol 'test(_)' from scope
+
+// CHECK: Running TypeCheck on module '[[SRC_PATH]]'
+// CHECK: Processing Function 'test' @[[SRC_PATH]]:3:5
+// CHECK: Processing VarDecl 'a' @[[SRC_PATH]]:4:5
+// CHECK: Inferring type for 'a'
+// CHECK: Processing Number '2' @[[SRC_PATH]]:4:13
+// CHECK: Is type 'f64'
+// CHECK: Setting type for 'a' to 'f64'
+// CHECK: Processing Print @[[SRC_PATH]]:5:5
+// CHECK: Processing Var 'a' @[[SRC_PATH]]:5:11
+// CHECK: Is type 'f64'
+// CHECK: Adding specialization to 'print(_)' for 'fn(f64 -> ())'
+// CHECK: Found no terminators
+// CHECK: Adding specialization to 'test(_)' for 'fn(() -> ())'
+// CHECK: Adding symbol 'test(_)' to AST cache

@@ -1,0 +1,26 @@
+// RUN: @mlpc --ast --parse %s 2>&1 | @filecheck %s
+
+def foo() {
+    var bar<> = [1, 2];
+    var foo<> = [2, 3];
+    return bar + foo;
+}
+
+// CHECK:   AST:
+// CHECK:   Module '[[SRC_PATH]]':
+// CHECK:     Proto 'foo' @[[SRC_PATH]]:3:5
+// CHECK:     Params: []
+// CHECK:     Block {
+// CHECK:       VarDecl: bar<> @[[SRC_PATH]]:4:5
+// CHECK:         Literal: <2>[ @[[SRC_PATH]]:4:17
+// CHECK:           1, 2
+// CHECK:         ] // Literal
+// CHECK:       VarDecl: foo<> @[[SRC_PATH]]:5:5
+// CHECK:         Literal: <2>[ @[[SRC_PATH]]:5:17
+// CHECK:           2, 3
+// CHECK:         ] // Literal
+// CHECK:       Return: @[[SRC_PATH]]:6:5
+// CHECK:         Binop: + @[[SRC_PATH]]:6:16
+// CHECK:           Var: bar @[[SRC_PATH]]:6:12
+// CHECK:           Var: foo @[[SRC_PATH]]:6:18
+// CHECK:     } // Block

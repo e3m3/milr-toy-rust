@@ -1,0 +1,18 @@
+// RUN: not @mlpc --verbose=sem --sem %s 2>&1 | @filecheck %s
+
+def foo() {
+    return bar();
+}
+
+def bar() {
+    return foo();
+}
+
+// CHECK: Running DeclCheck on module '[[SRC_PATH]]'
+// CHECK: Expected to find function 'bar(_)' in scope
+
+// COM: CHECK: Running TypeCheck on module '[[SRC_PATH]]'
+// COM: CHECK: Processing Function 'foo' @[[SRC_PATH]]:3:5
+// COM: CHECK: Processing Return @[[SRC_PATH]]:4:5
+// COM: CHECK: Processing Call 'bar' @[[SRC_PATH]]:4:12
+// COM: CHECK: Attempted to process Call 'bar' for which there is no known signature

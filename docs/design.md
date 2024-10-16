@@ -28,6 +28,42 @@ The implementation boilerplate here is currently modeled after the MLIR reposito
 and the MLIR standalone dialect template [[2]] until a more complex example can be constructed.
 
 
+#   Algebraic semantics
+
+**Warning: Matrix multiplication for tensors is experimental and likely buggy**
+
+The frontend semantics have been extended from the original MLIR toy specification to allow
+matrix multiplication using the dot-star operator (`.*`).
+
+For example, the multiplication of the `a` and `b` tensors would result in a shape inference
+error in the original specification:
+
+```mlp
+def test() {
+    var a<2,1,3> = [[1, 2], [3, 4], [5, 6]];
+    var b<2,3> = [[1, 2, 3], [4, 5, 6]];
+    return a * b;                           // Shape inference error <3,2> != <2,3>
+}
+```
+
+In this implementation the definition of test would be a valid program:
+
+```mlp
+def test() {
+    var a<3,2> = [[1, 2], [3, 4], [5, 6]];
+    var b<2,3> = [[1, 2, 3], [4, 5, 6]];
+    return a .* b;                          // Result returned is of shape <3,3>
+}
+```
+
+There are also ramifications on the language design in the compiler backend, which must support
+allocation and return of differently shaped tensors, both outer and inner product based on
+the number of dimensions contracted from the two-input tensors of the infix `.*` operator.
+
+See tests `tests/lit-tests/sem_product_1.mlp` and `tests/lit-tests/sem_ch1_4.mlp` for walkthrough
+examples of the semantic processing for specializations of tensor products.
+
+
 #   Workflow
 
 *   `build.rs`:
@@ -91,8 +127,12 @@ and the MLIR standalone dialect template [[2]] until a more complex example can 
 
 [3]:    https://mlir.llvm.org/getting_started/Faq/#registered-loaded-dependent-whats-up-with-dialects-management
 
+[4]:    https://www.mathworks.com/help/matlab/ref/tensorprod.html
+
 1.  `https://mlir.llvm.org/docs/Tutorials/Toy/Ch-2/`
 
 1.  `https://github.com/jmgorius/mlir-standalone-template`
 
 1.  `https://mlir.llvm.org/getting_started/Faq/#registered-loaded-dependent-whats-up-with-dialects-management`
+
+1.  `https://www.mathworks.com/help/matlab/ref/tensorprod.html`

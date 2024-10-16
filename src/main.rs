@@ -26,6 +26,7 @@ mod options;
 
 use ast::Ast;
 use ast::Expr;
+use ast::SharedValue;
 use ast::TypeMap;
 use exit_code::exit;
 use exit_code::ExitCode;
@@ -410,11 +411,11 @@ fn main() -> ! {
     }
 
     let mut expr_tmp: Expr = Default::default();
-    let mut ast: Box<&mut dyn Ast<Expr>> = Box::new(&mut expr_tmp);
+    let mut ast: SharedValue = expr_tmp.as_shared();
     let mut parser: Parser = Parser::new(&tokens, &options);
     Parser::parse_input(&mut ast, &mut parser, &name, &options);
 
-    let _type_map: TypeMap = Semantics::check_all(*ast, &options);
+    let _type_map: TypeMap = Semantics::check_all(ast.as_ref(), &options);
 
     exit(ExitCode::Ok);
 }

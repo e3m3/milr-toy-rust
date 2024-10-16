@@ -1,0 +1,52 @@
+// RUN: @mlpc --verbose=sem --sem %s 2>&1 | @filecheck %s
+
+def foo() {
+    var bar<> = [1, 2];
+    var foo<> = [2, 3];
+    return bar + foo;
+}
+
+// CHECK: Running DeclCheck on module '[[SRC_PATH]]'
+// CHECK: Added symbol 'bar' to scope
+// CHECK: Added symbol 'foo' to scope
+// CHECK: Found symbol 'bar' in scope
+// CHECK: Found symbol 'foo' in scope
+// CHECK: Removed symbol 'bar' from scope
+// CHECK: Removed symbol 'foo' from scope
+// CHECK: Added symbol 'foo(_)' to scope
+// CHECK: Removed symbol 'foo(_)' from scope
+
+// CHECK: Running TypeCheck on module '[[SRC_PATH]]'
+// CHECK: Processing Function 'foo' @[[SRC_PATH]]:3:5
+// CHECK: Processing VarDecl 'bar' @[[SRC_PATH]]:4:5
+// CHECK: Inferring type for 'bar'
+// CHECK: Processing Literal @[[SRC_PATH]]:4:17
+// CHECK: Asserting shape is '<2>'
+// CHECK: Processing Number '1' @[[SRC_PATH]]:4:18
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '2' @[[SRC_PATH]]:4:21
+// CHECK: Is type 'f64'
+// CHECK: Shape '<2>' for literal is correct
+// CHECK: Is type '<2xf64>'
+// CHECK: Setting type for 'bar' to '<2xf64>'
+// CHECK: Processing VarDecl 'foo' @[[SRC_PATH]]:5:5
+// CHECK: Inferring type for 'foo'
+// CHECK: Processing Literal @[[SRC_PATH]]:5:17
+// CHECK: Asserting shape is '<2>'
+// CHECK: Processing Number '2' @[[SRC_PATH]]:5:18
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '3' @[[SRC_PATH]]:5:21
+// CHECK: Is type 'f64'
+// CHECK: Shape '<2>' for literal is correct
+// CHECK: Is type '<2xf64>'
+// CHECK: Setting type for 'foo' to '<2xf64>'
+// CHECK: Processing Return @[[SRC_PATH]]:6:5
+// CHECK: Processing Binop '+' @[[SRC_PATH]]:6:16
+// CHECK: Processing Var 'bar' @[[SRC_PATH]]:6:12
+// CHECK: Is type '<2xf64>'
+// CHECK: Processing Var 'foo' @[[SRC_PATH]]:6:18
+// CHECK: Is type '<2xf64>'
+// CHECK: Is type '<2xf64>'
+// CHECK: Return type is '<2xf64>'
+// CHECK: Adding specialization to 'foo(_)' for 'fn(() -> <2xf64>)'
+// CHECK: Adding symbol 'foo(_)' to AST cache

@@ -1,0 +1,117 @@
+// RUN: @mlpc --verbose=sem --sem %s 2>&1 | @filecheck %s
+
+def test() {
+    var bar<> = [1, 2];
+    var foo<> = [2, 3];                         // Symbol 'foo' is inserted with '<2xf64>'
+    return bar + foo;
+}
+
+def main() {
+    var foo<3,2> = [[1, 2], [3, 4], [5, 6]];    // Symbol 'foo' is inserted with '<3x2xf64>'
+
+    print(test());                              // Print is specialized for type signature
+                                                // 'fn(<2xf64> -> ())'
+    print(foo);                                 // Print is specialized for type signature
+}                                               // 'fn(<3x2xf64> -> ())'
+
+// CHECK: Running DeclCheck on module '[[SRC_PATH]]'
+// CHECK: Added symbol 'bar' to scope
+// CHECK: Added symbol 'foo' to scope
+// CHECK: Found symbol 'add(_)' in scope
+// CHECK: Found symbol 'bar' in scope
+// CHECK: Found symbol 'foo' in scope
+// CHECK: Removed symbol 'bar' from scope
+// CHECK: Removed symbol 'foo' from scope
+// CHECK: Added symbol 'test(_)' to scope
+// CHECK: Added symbol 'foo' to scope
+// CHECK: Found symbol 'print(_)' in scope
+// CHECK: Found symbol 'test(_)' in scope
+// CHECK: Found symbol 'print(_)' in scope
+// CHECK: Found symbol 'foo' in scope
+// CHECK: Removed symbol 'foo' from scope
+// CHECK: Added symbol 'main(_)' to scope
+// CHECK: Removed symbol 'test(_)' from scope
+// CHECK: Removed symbol 'main(_)' from scope
+
+// CHECK: Running TypeCheck on module '[[SRC_PATH]]'
+// CHECK: Processing Function 'test' @[[SRC_PATH]]:3:5
+// CHECK: Processing VarDecl 'bar' @[[SRC_PATH]]:4:5
+// CHECK: Inferring type for 'bar'
+// CHECK: Processing Literal @[[SRC_PATH]]:4:17
+// CHECK: Asserting shape is '<2>'
+// CHECK: Processing Number '1' @[[SRC_PATH]]:4:18
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '2' @[[SRC_PATH]]:4:21
+// CHECK: Is type 'f64'
+// CHECK: Shape '<2>' for literal is correct
+// CHECK: Is type '<2xf64>'
+// CHECK: Setting type for 'bar' to '<2xf64>'
+// CHECK: Processing VarDecl 'foo' @[[SRC_PATH]]:5:5
+// CHECK: Inferring type for 'foo'
+// CHECK: Processing Literal @[[SRC_PATH]]:5:17
+// CHECK: Asserting shape is '<2>'
+// CHECK: Processing Number '2' @[[SRC_PATH]]:5:18
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '3' @[[SRC_PATH]]:5:21
+// CHECK: Is type 'f64'
+// CHECK: Shape '<2>' for literal is correct
+// CHECK: Is type '<2xf64>'
+// CHECK: Setting type for 'foo' to '<2xf64>'
+// CHECK: Processing Return @[[SRC_PATH]]:6:5
+// CHECK: Processing Binop '+' @[[SRC_PATH]]:6:16
+// CHECK: Processing Var 'bar' @[[SRC_PATH]]:6:12
+// CHECK: Is type '<2xf64>'
+// CHECK: Processing Var 'foo' @[[SRC_PATH]]:6:18
+// CHECK: Is type '<2xf64>'
+// CHECK: Adding specialization to 'add(_)' for 'fn(<2xf64>, <2xf64> -> <2xf64>)'
+// CHECK: Is type '<2xf64>'
+// CHECK: Return type is '<2xf64>'
+// CHECK: Adding specialization to 'test(_)' for 'fn(() -> <2xf64>)'
+// CHECK: Adding symbol 'test(_)' to AST cache
+// CHECK: Processing Function 'main' @[[SRC_PATH]]:9:5
+// CHECK: Processing VarDecl 'foo' @[[SRC_PATH]]:10:5
+// CHECK: Inferring type for 'foo'
+// CHECK: Asserting shape is '<3,2>'
+// CHECK: Processing Literal @[[SRC_PATH]]:10:20
+// CHECK: Asserting shape is '<3,2>'
+// CHECK: Processing Literal @[[SRC_PATH]]:10:21
+// CHECK: Asserting shape is '<2>'
+// CHECK: Processing Number '1' @[[SRC_PATH]]:10:22
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '2' @[[SRC_PATH]]:10:25
+// CHECK: Is type 'f64'
+// CHECK: Shape '<2>' for literal is correct
+// CHECK: Is type '<2xf64>'
+// CHECK: Processing Literal @[[SRC_PATH]]:10:29
+// CHECK: Asserting shape is '<2>'
+// CHECK: Processing Number '3' @[[SRC_PATH]]:10:30
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '4' @[[SRC_PATH]]:10:33
+// CHECK: Is type 'f64'
+// CHECK: Shape '<2>' for literal is correct
+// CHECK: Is type '<2xf64>'
+// CHECK: Processing Literal @[[SRC_PATH]]:10:37
+// CHECK: Asserting shape is '<2>'
+// CHECK: Processing Number '5' @[[SRC_PATH]]:10:38
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '6' @[[SRC_PATH]]:10:41
+// CHECK: Is type 'f64'
+// CHECK: Shape '<2>' for literal is correct
+// CHECK: Is type '<2xf64>'
+// CHECK: Shape '<3,2>' for literal is correct
+// CHECK: Is type '<3x2xf64>'
+// CHECK: Shape '<3,2>' for 'foo' is correct
+// CHECK: Setting type for 'foo' to '<3x2xf64>'
+// CHECK: Processing Print @[[SRC_PATH]]:12:5
+// CHECK: Processing Call 'test' @[[SRC_PATH]]:12:11
+// CHECK: Found symbol 'test(_)' in AST cache
+// CHECK: Getting specialization from 'test(_)' for 'fn(() -> <2xf64>)'
+// CHECK: Is type '<2xf64>'
+// CHECK: Adding specialization to 'print(_)' for 'fn(<2xf64> -> ())'
+// CHECK: Processing Print @[[SRC_PATH]]:14:5
+// CHECK: Processing Var 'foo' @[[SRC_PATH]]:14:11
+// CHECK: Is type '<3x2xf64>'
+// CHECK: Adding specialization to 'print(_)' for 'fn(<3x2xf64> -> ())'
+// CHECK: Found no terminators
+// CHECK: Adding specialization to 'main(_)' for 'fn(() -> ())'
+// CHECK: Adding symbol 'main(_)' to AST cache

@@ -1,6 +1,26 @@
-// RUN: @mlpc --verbose=sem --sem -e "def main() { return; }" 2>&1 | @filecheck %s --check-prefix=CHECK_A
+// RUN: @mlpc --verbose=sem --sem -e "def main() { return; }" 2>&1 | @filecheck %s
 
-// CHECK_A:     Added symbol 'print' to scope
-// CHECK_A:     Added symbol 'transpose' to scope
-// CHECK_A-NOT: Removed symbol 'print' from scope
-// CHECK_A-NOT: Removed symbol 'transpose' from scope
+// CHECK:       Added symbol 'add(_)' to scope
+// CHECK-NOT:   Added symbol 'div(_)' to scope
+// CHECK:       Added symbol 'matmul(_)' to scope
+// CHECK:       Added symbol 'mul(_)' to scope
+// CHECK:       Added symbol 'sub(_)' to scope
+// CHECK:       Added symbol 'print(_)' to scope
+// CHECK:       Added symbol 'transpose(_)' to scope
+// CHECK:       Running DeclCheck on module 'Stdin'
+// CHECK:       Added symbol 'main(_)' to scope
+// CHECK:       Removed symbol 'main(_)' from scope
+// CHECK-NOT:   Removed symbol 'add(_)' from scope
+// CHECK-NOT:   Removed symbol 'div(_)' from scope
+// CHECK-NOT:   Removed symbol 'matmul(_)' from scope
+// CHECK-NOT:   Removed symbol 'mul(_)' from scope
+// CHECK-NOT:   Removed symbol 'sub(_)' from scope
+// CHECK-NOT:   Removed symbol 'print(_)' from scope
+// CHECK-NOT:   Removed symbol 'transpose(_)' from scope
+
+// CHECK:       Running TypeCheck on module 'Stdin'
+// CHECK:       Processing Function 'main' @Stdin:1:5
+// CHECK:       Processing Return @Stdin:1:14
+// CHECK:       Return type is '()'
+// CHECK:       Adding specialization to 'main(_)' for 'fn(() -> ())'
+// CHECK:       Adding symbol 'main(_)' to AST cache

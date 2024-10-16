@@ -11,10 +11,13 @@ def foo() {
     return 10;
 }
 
-// CHECK: Added symbol 'foo' in scope
-// CHECK: Added symbol 'main' in scope
-// CHECK: Found symbol 'print' in scope
-// CHECK: Found symbol 'foo' in scope
-// CHECK: Found definition for symbol 'foo' in scope
-// CHECK: Removed symbol 'foo' in scope
-// CHECK: Removed symbol 'main' in scope
+// CHECK: Running DeclCheck on module '[[SRC_PATH]]'
+// CHECK: Added symbol 'foo(_)' in scope
+// CHECK: Found symbol 'print(_)' in scope
+// CHECK: Found symbol 'foo(_)' in scope
+// CHECK: Added symbol 'main(_)' in scope
+// CHECK: Found definition for symbol 'foo(_)' in scope
+// CHECK: Removed symbol 'foo(_)' in scope
+// CHECK: Removed symbol 'main(_)' in scope
+
+// CHECK: Running TypeCheck on module '[[SRC_PATH]]'

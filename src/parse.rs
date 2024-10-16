@@ -9,7 +9,6 @@ use crate::lex;
 use crate::options;
 
 use ast::Ast;
-use ast::binop_from_str;
 use ast::Binop;
 use ast::BinopExpr;
 use ast::BinopPrecedence;
@@ -26,6 +25,8 @@ use ast::NumberExpr;
 use ast::PrintExpr;
 use ast::PrototypeExpr;
 use ast::ReturnExpr;
+use ast::SharedValue;
+use ast::SharedValues;
 use ast::Shape;
 use ast::TDim;
 use ast::TMlp;
@@ -41,8 +42,8 @@ use lex::TokenKind;
 use options::RunOptions;
 use options::VerboseMode;
 
-const BINOPS: [TokenKind; 4] = [
-    TokenKind::Minus, TokenKind::Plus, TokenKind::Slash, TokenKind::Star
+const BINOPS: [TokenKind; 5] = [
+    TokenKind::DotStar, TokenKind::Minus, TokenKind::Plus, TokenKind::Slash, TokenKind::Star
 ];
 
 const BUILTINS: [TokenKind; 2] = [
@@ -51,6 +52,10 @@ const BUILTINS: [TokenKind; 2] = [
 
 const BUILTINS_AND_IDENTS: [TokenKind; 3] = [
     TokenKind::Print, TokenKind::Transpose, TokenKind::Ident
+];
+
+const RESERVED_FUNCTIONS: [&str; 5] = [
+    "add", "div", "matmul", "mul", "sub"
 ];
 
 #[derive(Clone)]
@@ -182,10 +187,14 @@ impl <'a> Parser<'a> {
 
     fn str_to_tdim(text: &String) -> TDim {
         if Self::is_hex_number(text) {
-            Self::emit_error(format!("Hexadecimal dimensions are illegal: '{}'", text));
+            Self::emit_error(format!("Hexadecimal dimensions are illegal: {}", text));
         } else {
             match i64::from_str(text.as_str()) {
-                Ok(n)   => n,
+                Ok(n)   => if n > 0 {
+                    n as TDim
+                } else {
+                    Self::emit_error(format!("Dimensions must be positive integers: {}", text));
+                },
                 Err(e)  => Self::emit_error(
                     format!("Failed to convert dimension string '{}': {}", text, e)
                 ),
@@ -218,15 +227,15 @@ impl <'a> Parser<'a> {
         &'a self,
         iter: &mut ParserIter,
         prec: BinopPrecedence,
-        value: Value
-    ) -> Value {
+        value: SharedValue
+    ) -> SharedValue {
         let mut lhs = value;
         loop {
             if !self.check_one_of(iter, &BINOPS) {
                 return lhs;
             }
             let op = self.get_token(iter).text.clone();
-            let binop = binop_from_str(&op);
+            let binop = Binop::from_str(&op);
             let prec_op = BinopPrecedence::new(binop);
             if prec_op < prec {
                 return lhs;
@@ -239,16 +248,16 @@ impl <'a> Parser<'a> {
             };
             if self.check_one_of(iter, &BINOPS) {
                 let op_next = self.get_token(iter).text.clone();
-                let binop_next = binop_from_str(&op_next);
+                let binop_next = Binop::from_str(&op_next);
                 if prec_op < BinopPrecedence::new(binop_next) {
                     rhs = self.parse_binop_rhs(iter, prec_op.next(), rhs);
                 }
             }
-            lhs = Expr::new_binop(binop, lhs, rhs, loc.clone()).as_value();
+            lhs = Expr::new_binop(binop, lhs, rhs, loc.clone()).as_shared();
         }
     }
 
-    fn parse_block(&'a self, iter: &mut ParserIter, values: &mut Values) -> () {
+    fn parse_block(&'a self, iter: &mut ParserIter, values: &mut SharedValues) -> () {
         if !self.consume(iter, TokenKind::BraceL, false) {
             Self::emit_error("Expected '{' token".to_string());
         }
@@ -276,7 +285,8 @@ impl <'a> Parser<'a> {
         self.expect(iter, TokenKind::BraceR, false);
     }
 
-    fn parse_call(&'a self, iter: &mut ParserIter, name: String) -> Value {
+    fn parse_call(&'a self, iter: &mut ParserIter, name: String) -> SharedValue {
+        Self::check_reserved(name.as_str());
         let loc = self.get_location(iter);
         match name.as_str() {
             "print"     => {
@@ -294,14 +304,14 @@ impl <'a> Parser<'a> {
                 Expr::new_transpose(arg, loc)
             },
             _           => {
-                let mut args: Values = Default::default();
+                let mut args: SharedValues = Default::default();
                 self.parse_paren_expr_list(iter, &mut args);
-                Expr::new_call(name.clone(), args, loc)
+                Expr::new_call(name.clone(), &args, loc)
             },
-        }.as_value()
+        }.as_shared()
     }
 
-    fn parse_declaration(&'a self, iter: &mut ParserIter) -> Value {
+    fn parse_declaration(&'a self, iter: &mut ParserIter) -> SharedValue {
         self.expect(iter, TokenKind::Var, false);
         let loc = self.get_location(iter);
         self.expect(iter, TokenKind::Ident, true);
@@ -313,25 +323,25 @@ impl <'a> Parser<'a> {
         };
         self.expect(iter, TokenKind::Assign, false);
         match self.parse_expression(iter) {
-            Some(value) => Expr::new_var_decl(name, shape, value, loc).as_value(),
+            Some(value) => Expr::new_var_decl(name, shape, value, loc).as_shared(),
             None        => Self::emit_error("Expected initialization for declaration".to_string()),
         }
     }
 
     /// Optimize empty function definitions out
-    fn parse_definition(&'a self, iter: &mut ParserIter) -> Option<Value> {
+    fn parse_definition(&'a self, iter: &mut ParserIter) -> Option<SharedValue> {
         let proto = self.parse_prototype(iter);
         let loc = proto.get_loc().clone();
-        let mut values: Values = Default::default();
+        let mut values: SharedValues = Default::default();
         self.parse_block(iter, &mut values);
         if !values.is_empty() {
-            Some(Expr::new_function(proto, values, loc).as_value())
+            Some(Expr::new_function(proto, &values, loc).as_shared())
         } else {
             None
         }
     }
 
-    fn parse_expression(&'a self, iter: &mut ParserIter) -> Option<Value> {
+    fn parse_expression(&'a self, iter: &mut ParserIter) -> Option<SharedValue> {
         let value = match self.parse_primary(iter) {
             Some(v) => v,
             None    => return None,
@@ -339,7 +349,7 @@ impl <'a> Parser<'a> {
         Some(self.parse_binop_rhs(iter, Default::default(), value))
     }
 
-    fn parse_ident_expr(&'a self, iter: &mut ParserIter) -> Value {
+    fn parse_ident_expr(&'a self, iter: &mut ParserIter) -> SharedValue {
         self.expect_one_of(iter, &BUILTINS_AND_IDENTS, false);
         let name = self.get_prev_token(iter).text.clone();
         let loc = self.get_location(iter);
@@ -349,12 +359,12 @@ impl <'a> Parser<'a> {
             if self.check(iter, TokenKind::ParenL) {
                 self.parse_call(iter, name)
             } else {
-                Expr::new_var(name, loc).as_value()
+                Expr::new_var(name, loc).as_shared()
             }
         }
     }
 
-    fn parse_literal_list(&'a self, iter: &mut ParserIter, values: &mut Values) -> Location {
+    fn parse_literal_list(&'a self, iter: &mut ParserIter, values: &mut SharedValues) -> Location {
         self.expect(iter, TokenKind::BracketL, false);
         let loc = self.get_location(iter);
         loop {
@@ -374,8 +384,8 @@ impl <'a> Parser<'a> {
         loc
     }
 
-    fn parse_module(&'a self, name: &str, iter: &mut ParserIter) -> Value {
-        let mut functions: Values = Default::default();
+    fn parse_module(&'a self, name: &str, iter: &mut ParserIter) -> SharedValue {
+        let mut functions: SharedValues = Default::default();
         while !self.consume(iter, TokenKind::Eoi, false) {
             match self.parse_definition(iter) {
                 Some(value) => functions.push(value),
@@ -385,23 +395,23 @@ impl <'a> Parser<'a> {
         if functions.is_empty() {
             Self::emit_error(format!("Unexpected empty module '{}'", name));
         }
-        Expr::new_module(name.to_string(), functions, self.get_location(iter)).as_value()
+        Expr::new_module(name.to_string(), &functions, self.get_location(iter)).as_shared()
     }
 
-    fn parse_number_expr(&'a self, iter: &mut ParserIter) -> Value {
+    fn parse_number_expr(&'a self, iter: &mut ParserIter) -> SharedValue {
         self.expect(iter, TokenKind::Number, false);
         let n: TMlp = Self::str_to_tmlp(&self.get_prev_token(iter).text);
-        Expr::new_number(n, self.get_location(iter)).as_value()
+        Expr::new_number(n, self.get_location(iter)).as_shared()
     }
 
-    fn parse_param_list(&'a self, iter: &mut ParserIter, values: &mut Values) -> () {
+    fn parse_param_list(&'a self, iter: &mut ParserIter, values: &mut SharedValues) -> () {
         self.expect(iter, TokenKind::ParenL, false);
-        let loc = self.get_location(iter);
         if !self.check(iter, TokenKind::ParenR) {
             loop {
                 self.expect(iter, TokenKind::Ident, false);
+                let loc = self.get_location(iter);
                 let name = &self.get_prev_token(iter).text;
-                values.push(Expr::new_var(name.clone(), loc.clone()).as_value());
+                values.push(Expr::new_param(name.clone(), loc.clone()).as_shared());
                 if !self.consume(iter, TokenKind::Comma, false) {
                     break;
                 }
@@ -410,14 +420,14 @@ impl <'a> Parser<'a> {
         self.expect(iter, TokenKind::ParenR, false);
     }
 
-    fn parse_paren_expr(&'a self, iter: &mut ParserIter) -> Option<Value> {
+    fn parse_paren_expr(&'a self, iter: &mut ParserIter) -> Option<SharedValue> {
         self.expect(iter, TokenKind::ParenL, false);
         let value = self.parse_expression(iter);
         self.expect(iter, TokenKind::ParenR, false);
         value
     }
 
-    fn parse_paren_expr_list(&'a self, iter: &mut ParserIter, values: &mut Values) -> () {
+    fn parse_paren_expr_list(&'a self, iter: &mut ParserIter, values: &mut SharedValues) -> () {
         self.expect(iter, TokenKind::ParenL, false);
         loop {
             if self.check(iter, TokenKind::ParenR) {
@@ -434,12 +444,12 @@ impl <'a> Parser<'a> {
         self.expect(iter, TokenKind::ParenR, false);
     }
 
-    fn parse_primary(&'a self, iter: &mut ParserIter) -> Option<Value> {
+    fn parse_primary(&'a self, iter: &mut ParserIter) -> Option<SharedValue> {
         if self.check_one_of(iter, &BUILTINS_AND_IDENTS) {
             Some(self.parse_ident_expr(iter))
         } else if self.check(iter, TokenKind::Minus) {
             // TODO: Should be typed to rhs if more types added
-            let value_zero = Expr::new_number(TMlp::default(), self.get_location(iter)).as_value();
+            let value_zero = Expr::new_number(TMlp::default(), self.get_location(iter)).as_shared();
             Some(self.parse_binop_rhs(iter, Default::default(), value_zero))
         } else if self.check(iter, TokenKind::Number) {
             Some(self.parse_number_expr(iter))
@@ -454,17 +464,18 @@ impl <'a> Parser<'a> {
         }
     }
 
-    fn parse_prototype(&'a self, iter: &mut ParserIter) -> Value {
+    fn parse_prototype(&'a self, iter: &mut ParserIter) -> SharedValue {
         self.expect(iter, TokenKind::Def, false);
         self.expect(iter, TokenKind::Ident, true);
         let loc = self.get_location(iter);
         let name = self.get_prev_token(iter).text.clone();
-        let mut args: Values = Default::default();
+        Self::check_reserved(name.as_str());
+        let mut args: SharedValues = Default::default();
         self.parse_param_list(iter, &mut args);
-        Expr::new_prototype(name, args, loc).as_value()
+        Expr::new_prototype(name, &args, loc).as_shared()
     }
 
-    fn parse_return_statement(&'a self, iter: &mut ParserIter) -> Value {
+    fn parse_return_statement(&'a self, iter: &mut ParserIter) -> SharedValue {
         self.expect(iter, TokenKind::Return, false);
         let loc = self.get_location(iter);
         Expr::new_return(
@@ -474,18 +485,18 @@ impl <'a> Parser<'a> {
                 self.parse_expression(iter)
             },
             loc
-        ).as_value()
+        ).as_shared()
     }
 
-    fn parse_tensor_literal(&'a self, iter: &mut ParserIter) -> Value {
+    fn parse_tensor_literal(&'a self, iter: &mut ParserIter) -> SharedValue {
         let mut dims = Dims::new();
-        let mut values: Values = Default::default();
+        let mut values: SharedValues = Default::default();
         let loc = self.parse_literal_list(iter, &mut values);
         dims.push(values.len() as TDim);
         let mut is_nested = false;
         let mut shape_first = Default::default();
         for (i, value) in values.iter().enumerate() {
-            if value.isa(ExprKindID::Literal) {
+            if value.is(ExprKindID::Literal) {
                 let expr = match value.get_kind() {
                     ExprKind::Literal(expr) => expr,
                     _                       => Self::emit_error("Unexpected expression".to_string()),
@@ -502,7 +513,7 @@ impl <'a> Parser<'a> {
                 if i == 0 {
                     dims.append(&mut shape.get().clone());
                 }
-            } else if value.isa(ExprKindID::Number) {
+            } else if value.is(ExprKindID::Number) {
                 if is_nested {
                     Self::emit_error(
                         format!("Unexpected non-uniform nested literal expression: {}", value)
@@ -514,7 +525,7 @@ impl <'a> Parser<'a> {
                 );
             }
         }
-        Expr::new_literal(Shape::new(dims), values, loc).as_value()
+        Expr::new_literal(&Shape::new(&dims), &values, loc).as_shared()
     }
 
     fn parse_type(&'a self, iter: &mut ParserIter) -> Shape {
@@ -528,19 +539,25 @@ impl <'a> Parser<'a> {
             }
         }
         self.expect(iter, TokenKind::AngleR, false);
-        Shape::new(dims)
+        Shape::new(&dims)
     }
 
     pub fn parse_input(
-        ret: &mut Box<&'a mut dyn Ast<Expr>>,
+        ret: &mut SharedValue,
         parser: &'a mut Parser<'a>,
         name: &str,
         options: &RunOptions
     ) {
         let mut iter = parser.iter();
-        *ret = Box::new(Box::leak(parser.parse_module(name, &mut iter)) as &'a mut dyn Ast<Expr>);
+        *ret = parser.parse_module(name, &mut iter);
         if options.print_ast { eprintln!("AST:\n{}", ret); }
         if options.parse_exit { exit(ExitCode::Ok); }
+    }
+
+    fn check_reserved(s: &str) -> () {
+        if RESERVED_FUNCTIONS.contains(&s) {
+            Self::emit_error(format!("Reserved function name '{}'", s));
+        }
     }
 
     fn emit_error(message: String) -> ! {

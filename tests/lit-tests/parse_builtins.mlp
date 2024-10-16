@@ -4,6 +4,22 @@
 // RUN: not @mlpc --verbose=parser --parse -e "def test() { var print<> = [2]; }"     2>&1 | @filecheck %s --check-prefix=CHECK_B
 // RUN: not @mlpc --verbose=parser --parse -e "def test() { var transpose<> = [2]; }" 2>&1 | @filecheck %s --check-prefix=CHECK_B
 
+// RUN: not @mlpc --verbose=parser --parse -e "def add() { return; }"                 2>&1 | @filecheck %s --check-prefix=CHECK_C
+// RUN: not @mlpc --verbose=parser --parse -e "def add(a,b) { return a+b; }"          2>&1 | @filecheck %s --check-prefix=CHECK_C
+// RUN: not @mlpc --verbose=parser --parse -e "def div() { return; }"                 2>&1 | @filecheck %s --check-prefix=CHECK_C
+// RUN: not @mlpc --verbose=parser --parse -e "def div(a,b) { return a/b; }"          2>&1 | @filecheck %s --check-prefix=CHECK_C
+// RUN: not @mlpc --verbose=parser --parse -e "def mul() { return; }"                 2>&1 | @filecheck %s --check-prefix=CHECK_C
+// RUN: not @mlpc --verbose=parser --parse -e "def mul(a,b) { return a*b; }"          2>&1 | @filecheck %s --check-prefix=CHECK_C
+// RUN: not @mlpc --verbose=parser --parse -e "def sub() { return; }"                 2>&1 | @filecheck %s --check-prefix=CHECK_C
+// RUN: not @mlpc --verbose=parser --parse -e "def sub(a,b) { return a-b; }"          2>&1 | @filecheck %s --check-prefix=CHECK_C
+// RUN: not @mlpc --verbose=parser --parse -e "def test(a,b) { add(a,b); }"           2>&1 | @filecheck %s --check-prefix=CHECK_C
+// RUN: not @mlpc --verbose=parser --parse -e "def test(a,b) { div(a,b); }"           2>&1 | @filecheck %s --check-prefix=CHECK_C
+// RUN: not @mlpc --verbose=parser --parse -e "def test(a,b) { mul(a,b); }"           2>&1 | @filecheck %s --check-prefix=CHECK_C
+// RUN: not @mlpc --verbose=parser --parse -e "def test(a,b) { sub(a,b); }"           2>&1 | @filecheck %s --check-prefix=CHECK_C
+
 // CHECK_A: Expected 'Ident' token at position '1'
 
 // CHECK_B: Expected 'Ident' token at position '6'
+
+// CHECK_C: Consumed expected token 'Ident:[[RESERVED:(add|div|mul|sub)]]' at position '{{[0-9]+}}'
+// CHECK_C: Reserved function name '[[RESERVED]]'

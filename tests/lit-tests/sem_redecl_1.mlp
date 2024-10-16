@@ -8,5 +8,7 @@ def main() {
     return -2.3;
 }
 
+// CHECK: Running DeclCheck on module '[[SRC_PATH]]'
+// CHECK: Added symbol 'main(_)' to scope
 // CHECK: Redeclaration of function 'main' @[[SRC_PATH]]:7:5
 // CHECK: AST failed DeclCheck semantics check

@@ -6,11 +6,6 @@ def multiply_transpose(a, b) {
     return transpose(a) * transpose(b);
 }
 
-// User defined generic function that operates on unknown shaped arguments.
-def matrix_multiply_transpose(a, b) {
-    return transpose(a) .* transpose(b);
-}
-
 def main() {
     // Define a variable `a` with shape <2, 3>, initialized with the literal value.
     var a = [[1, 2, 3], [4, 5, 6]];
@@ -20,10 +15,13 @@ def main() {
     // arguments and deduce a return type of <3, 2> in initialization of `c`.
     var c = multiply_transpose(a, b);
 
-    // Finally, calling into `multiply_transpose` with mixed shapes
-    // (<2, 3> and <3, 2>) will trigger a specialization of `multiply_transpose`
-    // and return <3, 3>.
-    var d = matrix_multiply_transpose(a, c);
+    // A second call to `multiply_transpose` with <2, 3> for both arguments will
+    // reuse the previously specialized and inferred version and return <3, 2>.
+    var d = multiply_transpose(b, a);
+
+    // A new call with <3, 2> (instead of <2, 3>) for both dimensions will
+    // trigger another specialization of `multiply_transpose`.
+    var e = multiply_transpose(c, d);
 }
 
 // CHECK: Running DeclCheck on module '[[SRC_PATH]]'
@@ -39,31 +37,25 @@ def main() {
 // CHECK: Added symbol 'multiply_transpose(_)' to scope
 // CHECK: Added symbol 'a' to scope
 // CHECK: Added symbol 'b' to scope
-// CHECK: Found symbol 'matmul(_)' in scope
-// CHECK: Found symbol 'transpose(_)' in scope
-// CHECK: Found symbol 'a' in scope
-// CHECK: Found symbol 'transpose(_)' in scope
-// CHECK: Found symbol 'b' in scope
-// CHECK: Removed symbol 'a' from scope
-// CHECK: Removed symbol 'b' from scope
-// CHECK: Added symbol 'matrix_multiply_transpose(_)' to scope
-// CHECK: Added symbol 'a' to scope
-// CHECK: Added symbol 'b' to scope
 // CHECK: Found symbol 'multiply_transpose(_)' in scope
 // CHECK: Found symbol 'a' in scope
 // CHECK: Found symbol 'b' in scope
 // CHECK: Added symbol 'c' to scope
-// CHECK: Found symbol 'matrix_multiply_transpose(_)' in scope
+// CHECK: Found symbol 'multiply_transpose(_)' in scope
+// CHECK: Found symbol 'b' in scope
 // CHECK: Found symbol 'a' in scope
-// CHECK: Found symbol 'c' in scope
 // CHECK: Added symbol 'd' to scope
+// CHECK: Found symbol 'multiply_transpose(_)' in scope
+// CHECK: Found symbol 'c' in scope
+// CHECK: Found symbol 'd' in scope
+// CHECK: Added symbol 'e' to scope
 // CHECK: Removed symbol 'a' from scope
 // CHECK: Removed symbol 'b' from scope
 // CHECK: Removed symbol 'c' from scope
 // CHECK: Removed symbol 'd' from scope
+// CHECK: Removed symbol 'e' from scope
 // CHECK: Added symbol 'main(_)' to scope
 // CHECK: Removed symbol 'multiply_transpose(_)' from scope
-// CHECK: Removed symbol 'matrix_multiply_transpose(_)' from scope
 // CHECK: Removed symbol 'main(_)' from scope
 
 // CHECK: Running TypeCheck on module '[[SRC_PATH]]'
@@ -82,91 +74,73 @@ def main() {
 // CHECK: Is type '<*xf64>'
 // CHECK: Adding specialization to 'transpose(_)' for 'fn(<*xf64> -> <*xf64>)'
 // CHECK: Is type '<*xf64>'
+// CHECK: Adding specialization to 'mul(_)' for 'fn(<*xf64>, <*xf64> -> <*xf64>)'
 // CHECK: Is type '<*xf64>'
 // CHECK: Return type is '<*xf64>'
 // CHECK: Adding specialization to 'multiply_transpose(_)' for 'fn(<*xf64>, <*xf64> -> <*xf64>)'
 // CHECK: Adding symbol 'multiply_transpose(_)' to AST cache
-// CHECK: Processing Function 'matrix_multiply_transpose' @[[SRC_PATH]]:10:5
-// CHECK: Found parameter 'a' @[[SRC_PATH]]:10:31
-// CHECK: Found parameter 'b' @[[SRC_PATH]]:10:34
-// CHECK: Processing Return @[[SRC_PATH]]:11:5
-// CHECK: Processing Binop '.*' @[[SRC_PATH]]:11:25
-// CHECK: Processing Transpose @[[SRC_PATH]]:11:12
-// CHECK: Processing Var 'a' @[[SRC_PATH]]:11:22
-// CHECK: Is type '<*xf64>'
-// CHECK: Adding specialization to 'transpose(_)' for 'fn(<*xf64> -> <*xf64>)'
-// CHECK: Is type '<*xf64>'
-// CHECK: Processing Transpose @[[SRC_PATH]]:11:28
-// CHECK: Processing Var 'b' @[[SRC_PATH]]:11:38
-// CHECK: Is type '<*xf64>'
-// CHECK: Adding specialization to 'transpose(_)' for 'fn(<*xf64> -> <*xf64>)'
-// CHECK: Is type '<*xf64>'
-// CHECK: Adding specialization to 'matmul(_)' for 'fn(<*xf64>, <*xf64> -> <*xf64>)'
-// CHECK: Is type '<*xf64>'
-// CHECK: Return type is '<*xf64>'
-// CHECK: Adding symbol 'matrix_multiply_transpose(_)' to AST cache
-// CHECK: Processing Function 'main' @[[SRC_PATH]]:14:5
-// CHECK: Processing VarDecl 'a' @[[SRC_PATH]]:16:5
+// CHECK: Processing Function 'main' @[[SRC_PATH]]:9:5
+// CHECK: Processing VarDecl 'a' @[[SRC_PATH]]:11:5
 // CHECK: Inferring type for 'a'
-// CHECK: Processing Literal @[[SRC_PATH]]:16:13
+// CHECK: Processing Literal @[[SRC_PATH]]:11:13
 // CHECK: Asserting shape is '<2,3>'
-// CHECK: Processing Literal @[[SRC_PATH]]:16:14
+// CHECK: Processing Literal @[[SRC_PATH]]:11:14
 // CHECK: Asserting shape is '<3>'
-// CHECK: Processing Number '1' @[[SRC_PATH]]:16:15
+// CHECK: Processing Number '1' @[[SRC_PATH]]:11:15
 // CHECK: Is type 'f64'
-// CHECK: Processing Number '2' @[[SRC_PATH]]:16:18
+// CHECK: Processing Number '2' @[[SRC_PATH]]:11:18
 // CHECK: Is type 'f64'
-// CHECK: Processing Number '3' @[[SRC_PATH]]:16:21
+// CHECK: Processing Number '3' @[[SRC_PATH]]:11:21
 // CHECK: Is type 'f64'
 // CHECK: Shape '<3>' for literal is correct
 // CHECK: Is type '<3xf64>'
-// CHECK: Processing Literal @[[SRC_PATH]]:16:25
+// CHECK: Processing Literal @[[SRC_PATH]]:11:25
 // CHECK: Asserting shape is '<3>'
-// CHECK: Processing Number '4' @[[SRC_PATH]]:16:26
+// CHECK: Processing Number '4' @[[SRC_PATH]]:11:26
 // CHECK: Is type 'f64'
-// CHECK: Processing Number '5' @[[SRC_PATH]]:16:29
+// CHECK: Processing Number '5' @[[SRC_PATH]]:11:29
 // CHECK: Is type 'f64'
-// CHECK: Processing Number '6' @[[SRC_PATH]]:16:32
+// CHECK: Processing Number '6' @[[SRC_PATH]]:11:32
 // CHECK: Is type 'f64'
 // CHECK: Shape '<3>' for literal is correct
 // CHECK: Is type '<3xf64>'
 // CHECK: Shape '<2,3>' for literal is correct
 // CHECK: Is type '<2x3xf64>'
 // CHECK: Setting type for 'a' to '<2x3xf64>'
-// CHECK: Processing VarDecl 'b' @[[SRC_PATH]]:17:5
+// CHECK: Processing VarDecl 'b' @[[SRC_PATH]]:12:5
 // CHECK: Inferring type for 'b'
 // CHECK: Asserting shape is '<2,3>'
-// CHECK: Processing Literal @[[SRC_PATH]]:17:19
+// CHECK: Processing Literal @[[SRC_PATH]]:12:19
 // CHECK: Asserting shape is '<6>'
-// CHECK: Processing Number '1' @[[SRC_PATH]]:17:20
+// CHECK: Processing Number '1' @[[SRC_PATH]]:12:20
 // CHECK: Is type 'f64'
-// CHECK: Processing Number '2' @[[SRC_PATH]]:17:23
+// CHECK: Processing Number '2' @[[SRC_PATH]]:12:23
 // CHECK: Is type 'f64'
-// CHECK: Processing Number '3' @[[SRC_PATH]]:17:26
+// CHECK: Processing Number '3' @[[SRC_PATH]]:12:26
 // CHECK: Is type 'f64'
-// CHECK: Processing Number '4' @[[SRC_PATH]]:17:29
+// CHECK: Processing Number '4' @[[SRC_PATH]]:12:29
 // CHECK: Is type 'f64'
-// CHECK: Processing Number '5' @[[SRC_PATH]]:17:32
+// CHECK: Processing Number '5' @[[SRC_PATH]]:12:32
 // CHECK: Is type 'f64'
-// CHECK: Processing Number '6' @[[SRC_PATH]]:17:35
+// CHECK: Processing Number '6' @[[SRC_PATH]]:12:35
 // CHECK: Is type 'f64'
 // CHECK: Shape '<6>' for literal is correct
 // CHECK: Is type '<6xf64>'
 // CHECK: Shape '<2,3>' for 'b' is correct
 // CHECK: Setting type for 'b' to '<2x3xf64>'
-// CHECK: Processing VarDecl 'c' @[[SRC_PATH]]:21:5
+// CHECK: Processing VarDecl 'c' @[[SRC_PATH]]:16:5
 // CHECK: Inferring type for 'c'
-// CHECK: Processing Call 'multiply_transpose' @[[SRC_PATH]]:21:13
+// CHECK: Processing Call 'multiply_transpose' @[[SRC_PATH]]:16:13
 // CHECK: Found symbol 'multiply_transpose(_)' in AST cache
-// CHECK: Processing Var 'a' @[[SRC_PATH]]:21:32
+// CHECK: Processing Var 'a' @[[SRC_PATH]]:16:32
 // CHECK: Is type '<2x3xf64>'
-// CHECK: Processing Var 'b' @[[SRC_PATH]]:21:35
+// CHECK: Processing Var 'b' @[[SRC_PATH]]:16:35
 // CHECK: Is type '<2x3xf64>'
 // CHECK: Getting specialization from 'multiply_transpose(_)' for 'fn(<*xf64>, <*xf64> -> <*xf64>)'
 // CHECK: Type for 'multiply_transpose(_)' is underspecified
 // CHECK: Processing Function 'multiply_transpose' @[[SRC_PATH]]:5:5
-// CHECK: Found parameter 'a' with type '<2x3xf64>'
-// CHECK: Found parameter 'b' with type '<2x3xf64>'
+// CHECK: Found parameter 'a' with type '<2x3xf64>' @[[SRC_PATH]]:5:24
+// CHECK: Found parameter 'b' with type '<2x3xf64>' @[[SRC_PATH]]:5:27
 // CHECK: Processing Return @[[SRC_PATH]]:6:5
 // CHECK: Processing Binop '*' @[[SRC_PATH]]:6:25
 // CHECK: Processing Transpose @[[SRC_PATH]]:6:12
@@ -185,32 +159,48 @@ def main() {
 // CHECK: Adding specialization to 'multiply_transpose(_)' for 'fn(<2x3xf64>, <2x3xf64> -> <3x2xf64>)'
 // CHECK: Is type '<3x2xf64>'
 // CHECK: Setting type for 'c' to '<3x2xf64>'
-// CHECK: Processing VarDecl 'd' @[[SRC_PATH]]:26:5
+// CHECK: Processing VarDecl 'd' @[[SRC_PATH]]:20:5
 // CHECK: Inferring type for 'd'
-// CHECK: Processing Call 'matrix_multiply_transpose' @[[SRC_PATH]]:26:13
-// CHECK: Found symbol 'matrix_multiply_transpose(_)' in AST cache
-// CHECK: Processing Var 'a' @[[SRC_PATH]]:26:39
+// CHECK: Processing Call 'multiply_transpose' @[[SRC_PATH]]:20:13
+// CHECK: Found symbol 'multiply_transpose(_)' in AST cache
+// CHECK: Processing Var 'b' @[[SRC_PATH]]:20:32
 // CHECK: Is type '<2x3xf64>'
-// CHECK: Processing Var 'c' @[[SRC_PATH]]:26:42
-// CHECK: Is type '<3x2xf64>'
-// CHECK: Getting specialization from 'matrix_multiply_transpose(_)' for 'fn(<*xf64>, <*xf64> -> <*xf64>)'
-// CHECK: Type for 'matrix_multiply_transpose(_)' is underspecified
-// CHECK: Processing Function 'matrix_multiply_transpose' @[[SRC_PATH]]:10:5
-// CHECK: Found parameter 'a' with type '<2x3xf64>' @[[SRC_PATH]]:10:31
-// CHECK: Found parameter 'b' with type '<3x2xf64>' @[[SRC_PATH]]:10:34
-// CHECK: Processing Return @[[SRC_PATH]]:11:5
-// CHECK: Processing Binop '.*' @[[SRC_PATH]]:11:25
-// CHECK: Processing Transpose @[[SRC_PATH]]:11:12
-// CHECK: Processing Var 'a' @[[SRC_PATH]]:11:22
+// CHECK: Processing Var 'a' @[[SRC_PATH]]:20:35
 // CHECK: Is type '<2x3xf64>'
-// CHECK: Adding specialization to 'transpose(_)' for 'fn(<2x3xf64> -> <3x2xf64>)'
+// CHECK: Getting specialization from 'multiply_transpose(_)' for 'fn(<2x3xf64>, <2x3xf64> -> <3x2xf64>)'
 // CHECK: Is type '<3x2xf64>'
-// CHECK: Processing Transpose @[[SRC_PATH]]:11:28
-// CHECK: Processing Var 'b' @[[SRC_PATH]]:11:38
+// CHECK: Setting type for 'd' to '<3x2xf64>'
+// CHECK: Processing VarDecl 'e' @[[SRC_PATH]]:24:5
+// CHECK: Inferring type for 'e'
+// CHECK: Processing Call 'multiply_transpose' @[[SRC_PATH]]:24:13
+// CHECK: Found symbol 'multiply_transpose(_)' in AST cache
+// CHECK: Processing Var 'c' @[[SRC_PATH]]:24:32
+// CHECK: Is type '<3x2xf64>'
+// CHECK: Processing Var 'd' @[[SRC_PATH]]:24:35
+// CHECK: Is type '<3x2xf64>'
+// CHECK: Getting specialization from 'multiply_transpose(_)' for 'fn(<*xf64>, <*xf64> -> <*xf64>)'
+// CHECK: Type for 'multiply_transpose(_)' is underspecified
+// CHECK: Processing Function 'multiply_transpose' @[[SRC_PATH]]:5:5
+// CHECK: Found parameter 'a' with type '<3x2xf64>' @[[SRC_PATH]]:5:24
+// CHECK: Found parameter 'b' with type '<3x2xf64>' @[[SRC_PATH]]:5:27
+// CHECK: Processing Return @[[SRC_PATH]]:6:5
+// CHECK: Processing Binop '*' @[[SRC_PATH]]:6:25
+// CHECK: Processing Transpose @[[SRC_PATH]]:6:12
+// CHECK: Processing Var 'a' @[[SRC_PATH]]:6:22
 // CHECK: Is type '<3x2xf64>'
 // CHECK: Adding specialization to 'transpose(_)' for 'fn(<3x2xf64> -> <2x3xf64>)'
 // CHECK: Is type '<2x3xf64>'
-// CHECK: Adding specialization to 'matmul(_)' for 'fn(<3x2xf64>, <2x3xf64> -> <3x3xf64>)'
-// CHECK: Is type '<3x3xf64>'
-// CHECK: Setting type for 'd' to '<3x3xf64>'
+// CHECK: Processing Transpose @[[SRC_PATH]]:6:27
+// CHECK: Processing Var 'b' @[[SRC_PATH]]:6:37
+// CHECK: Is type '<3x2xf64>'
+// CHECK: Adding specialization to 'transpose(_)' for 'fn(<3x2xf64> -> <2x3xf64>)'
+// CHECK: Is type '<2x3xf64>'
+// CHECK: Adding specialization to 'mul(_)' for 'fn(<2x3xf64>, <2x3xf64> -> <2x3xf64>)'
+// CHECK: Is type '<2x3xf64>'
+// CHECK: Return type is '<2x3xf64>'
+// CHECK: Adding specialization to 'multiply_transpose(_)' for 'fn(<3x2xf64>, <3x2xf64> -> <2x3xf64>)'
+// CHECK: Is type '<2x3xf64>'
+// CHECK: Setting type for 'e' to '<2x3xf64>'
+// CHECK: Found no terminators
+// CHECK: Adding specialization to 'main(_)' for 'fn(() -> ())'
 // CHECK: Adding symbol 'main(_)' to AST cache

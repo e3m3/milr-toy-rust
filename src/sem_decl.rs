@@ -12,6 +12,7 @@ use crate::options;
 use ast::Ast;
 use ast::AcceptVisit;
 use ast::AstVisitor;
+use ast::Binop;
 use ast::Expr;
 use ast::ExprKind;
 use ast::ExprKindID;
@@ -91,8 +92,17 @@ impl <'a> DeclCheck<'a> {
     pub fn new(options: &'a RunOptions) -> Self {
         let mut decl_check = DeclCheck{options, scope: Default::default()};
         // Add builtin symbols
-        let expr_print = PrintExpr::new(Expr::default().as_value());
-        let expr_transpose = TransposeExpr::new(Expr::default().as_value());
+        let expr_add = BinopExpr::new(Binop::Add, Default::default(), Default::default());
+        let _expr_div = BinopExpr::new(Binop::Div, Default::default(), Default::default());
+        let expr_mat_mul = BinopExpr::new(Binop::MatMul, Default::default(), Default::default());
+        let expr_mul = BinopExpr::new(Binop::Mul, Default::default(), Default::default());
+        let expr_sub = BinopExpr::new(Binop::Sub, Default::default(), Default::default());
+        let expr_print = PrintExpr::new(Expr::default().as_shared());
+        let expr_transpose = TransposeExpr::new(Expr::default().as_shared());
+        assert!(decl_check.scope.add_symbol(&expr_add.get_symbol(), decl_check.options));
+        assert!(decl_check.scope.add_symbol(&expr_mat_mul.get_symbol(), decl_check.options));
+        assert!(decl_check.scope.add_symbol(&expr_mul.get_symbol(), decl_check.options));
+        assert!(decl_check.scope.add_symbol(&expr_sub.get_symbol(), decl_check.options));
         assert!(decl_check.scope.add_symbol(&expr_print.get_symbol(), decl_check.options));
         assert!(decl_check.scope.add_symbol(&expr_transpose.get_symbol(), decl_check.options));
         decl_check
@@ -100,7 +110,13 @@ impl <'a> DeclCheck<'a> {
 
     fn check_binop(&mut self, ast: &dyn Ast<Expr>) -> bool {
         let expr: &BinopExpr = ast.as_impl().get_kind().to_binop().unwrap();
-        expr.get_lhs().accept(self) && expr.get_rhs().accept(self)
+        let sym = expr.get_symbol();
+        if self.scope.contains_symbol(&sym, self.options) {
+            expr.get_lhs().accept_visit(self) && expr.get_rhs().accept_visit(self)
+        } else {
+            eprintln!("Expected symbol '{}' in scope", sym);
+            false
+        }
     }
 
     fn check_call(&mut self, ast: &dyn Ast<Expr>) -> bool {
@@ -111,7 +127,7 @@ impl <'a> DeclCheck<'a> {
             return false;
         }
         for arg in expr.get_args().iter() {
-            if !arg.accept(self) {
+            if !arg.accept_visit(self) {
                 return false;
             }
         }
@@ -122,10 +138,10 @@ impl <'a> DeclCheck<'a> {
     fn check_function(&mut self, ast: &dyn Ast<Expr>) -> bool {
         let expr: &FunctionExpr = ast.as_impl().get_kind().to_function().unwrap();
         let proto = expr.get_prototype();
-        if !proto.accept(self) {
+        if !proto.accept_visit(self) {
             return false;
         }
-        let mut added: Vec<String> = Vec::new();
+        let mut added: Vec<Symbol> = Vec::new();
         for arg in proto.get_kind().to_prototype().unwrap().get_args().iter() {
             let sym = arg.get_symbol().unwrap();
             if !self.scope.add_symbol(&sym, self.options) {
@@ -134,10 +150,10 @@ impl <'a> DeclCheck<'a> {
             added.push(sym);
         }
         for value in expr.get_body().iter() {
-            if !value.accept(self) {
+            if !value.accept_visit(self) {
                 return false;
             }
-            if value.isa(ExprKindID::VarDecl) {
+            if value.is(ExprKindID::VarDecl) {
                 let sym = value.get_symbol().unwrap();
                 added.push(sym.clone());
             }
@@ -150,7 +166,7 @@ impl <'a> DeclCheck<'a> {
         }
         let sym = proto.get_symbol().unwrap();
         if !self.scope.add_symbol(&sym, self.options) {
-            eprintln!("Redeclaration of function '{}' {}", sym, ast.get_loc());
+            eprintln!("Redeclaration of function '{}' {}", expr.get_name(), ast.get_loc());
             false
         } else {
             true
@@ -166,16 +182,17 @@ impl <'a> DeclCheck<'a> {
         if self.options.is_verbose(VerboseMode::Sem) {
             eprintln!("Running DeclCheck on module '{}'", expr.get_name());
         }
-        let mut added: Vec<String> = Vec::new();
+        let mut added: Vec<Symbol> = Vec::new();
         for function in expr.get_functions().iter() {
             let sym = function.get_symbol().unwrap();
             if self.scope.contains_symbol(&sym, self.options) {
-                eprintln!("Redeclaration of function '{}' {}", sym, function.get_loc());
+                let name = function.get_kind().to_function().unwrap().get_name();
+                eprintln!("Redeclaration of function '{}' {}", name, function.get_loc());
                 return false;
             } else {
                 added.push(sym);
             }
-            if !function.accept(self) {
+            if !function.accept_visit(self) {
                 return false;
             }
         }
@@ -200,7 +217,7 @@ impl <'a> DeclCheck<'a> {
             eprintln!("Expected to find symbol '{}' in scope {}", sym, ast.get_loc());
             return false;
         }
-        expr.get_value().accept(self)
+        expr.get_value().accept_visit(self)
     }
 
     // TODO: Forward declarations
@@ -209,13 +226,14 @@ impl <'a> DeclCheck<'a> {
         for arg in expr.get_args().iter() {
             let sym = arg.get_symbol().unwrap();
             if self.scope.contains_symbol(&sym, self.options) {
-                eprintln!("Redeclaration of symbol '{}' {}", sym, arg.get_loc());
+                let name = arg.get_kind().to_var().unwrap().get_name();
+                eprintln!("Redeclaration of symbol '{}' {}", name, arg.get_loc());
                 return false;
             }
         }
         let sym = ast.get_symbol().unwrap();
         if self.scope.contains_symbol(&sym, self.options) {
-            eprintln!("Redeclaration of function '{}' {}", sym, ast.get_loc());
+            eprintln!("Redeclaration of function '{}' {}", expr.get_name(), ast.get_loc());
             return false;
         }
         true
@@ -225,7 +243,7 @@ impl <'a> DeclCheck<'a> {
         let expr: &ReturnExpr = ast.as_impl().get_kind().to_return().unwrap();
         match expr.get_value() {
             None        => true,
-            Some(value) => value.accept(self),
+            Some(value) => value.accept_visit(self),
         }
     }
 
@@ -236,7 +254,7 @@ impl <'a> DeclCheck<'a> {
             eprintln!("Expected to find symbol '{}' in scope {}", sym, ast.get_loc());
             return false;
         }
-        expr.get_value().accept(self)
+        expr.get_value().accept_visit(self)
     }
 
     fn check_var(&mut self, ast: &dyn Ast<Expr>) -> bool {
@@ -252,12 +270,12 @@ impl <'a> DeclCheck<'a> {
 
     fn check_var_decl(&mut self, ast: &dyn Ast<Expr>) -> bool {
         let expr: &VarDeclExpr = ast.as_impl().get_kind().to_var_decl().unwrap();
-        if !expr.get_value().accept(self) {
+        if !expr.get_value().accept_visit(self) {
             return false;
         }
         let sym = ast.get_symbol().unwrap();
         if !self.scope.add_symbol(&sym, self.options) {
-            eprintln!("Redeclaration of symbol '{}' {}", sym, ast.get_loc());
+            eprintln!("Redeclaration of symbol '{}' {}", expr.get_name(), ast.get_loc());
             false
         } else {
             true

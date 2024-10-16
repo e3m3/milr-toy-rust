@@ -1,0 +1,54 @@
+// RUN: @mlpc --ast --parse %s 2>&1 | @filecheck %s
+
+def test() {
+    var bar<> = [1, 2];
+    var foo<> = [2, 3];                         // Symbol 'foo' is inserted with '<2xf64>'
+    return bar + foo;
+}
+
+def main() {
+    var foo<3,2> = [[1, 2], [3, 4], [5, 6]];    // Symbol 'foo' is inserted with '<3x2xf64>'
+
+    print(test());                              // Print is specialized for type signature
+                                                // 'fn(<2xf64> -> ())'
+    print(foo);                                 // Print is specialized for type signature
+}                                               // 'fn(<3x2xf64> -> ())'
+
+// CHECK:   AST:
+// CHECK:   Module '[[SRC_PATH]]':
+// CHECK:     Proto 'test' @[[SRC_PATH]]:3:5
+// CHECK:     Params: []
+// CHECK:     Block {
+// CHECK:       VarDecl: bar<> @[[SRC_PATH]]:4:5
+// CHECK:         Literal: <2>[
+// CHECK:           1, 2
+// CHECK:         ] // Literal
+// CHECK:       VarDecl: foo<> @[[SRC_PATH]]:5:5
+// CHECK:         Literal: <2>[
+// CHECK:           2, 3
+// CHECK:         ] // Literal
+// CHECK:       Return: @[[SRC_PATH]]:6:5
+// CHECK:         Binop: + @[[SRC_PATH]]:6:16
+// CHECK:           Var: bar @[[SRC_PATH]]:6:12
+// CHECK:           Var: foo @[[SRC_PATH]]:6:18
+// CHECK:     } // Block
+// CHECK:     Proto 'main' @[[SRC_PATH]]:9:5
+// CHECK:     Params: []
+// CHECK:     Block {
+// CHECK:       VarDecl: foo<3,2> @[[SRC_PATH]]:10:5
+// CHECK:         Literal: <3,2>[ @[[SRC_PATH]]:10:20
+// CHECK:           Literal: <2>[ @[[SRC_PATH]]:10:21
+// CHECK:             1, 2
+// CHECK:           ] // Literal
+// CHECK:           Literal: <2>[ @[[SRC_PATH]]:10:29
+// CHECK:             3, 4
+// CHECK:           ] // Literal
+// CHECK:           Literal: <2>[ @[[SRC_PATH]]:10:37
+// CHECK:             5, 6
+// CHECK:           ] // Literal
+// CHECK:         ] // Literal
+// CHECK:       Print: @[[SRC_PATH]]:12:5
+// CHECK:         Call 'test': @[[SRC_PATH]]:12:11
+// CHECK:       Print: @[[SRC_PATH]]:14:5
+// CHECK:         Var: foo @[[SRC_PATH]]:14:11
+// CHECK:     } // Block

@@ -10,12 +10,57 @@ def main() {
     return foo();
 }
 
+// CHECK: Running DeclCheck on module '[[SRC_PATH]]'
 // CHECK: Added symbol 'a' to scope
 // CHECK: Added symbol 'foo' to scope
 // CHECK: Removed symbol 'a' from scope
 // CHECK: Removed symbol 'foo' from scope
-// CHECK: Added symbol 'foo' to scope
-// CHECK: Found symbol 'foo' in scope
-// CHECK: Added symbol 'main' to scope
-// CHECK: Removed symbol 'foo' from scope
-// CHECK: Removed symbol 'main' from scope
+// CHECK: Added symbol 'foo(_)' to scope
+// CHECK: Found symbol 'foo(_)' in scope
+// CHECK: Added symbol 'main(_)' to scope
+// CHECK: Removed symbol 'foo(_)' from scope
+// CHECK: Removed symbol 'main(_)' from scope
+
+// CHECK: Running TypeCheck on module '[[SRC_PATH]]'
+// CHECK: Processing Function 'foo' @[[SRC_PATH]]:3:5
+// CHECK: Processing VarDecl 'a' @[[SRC_PATH]]:4:5
+// CHECK: Inferring type for 'a'
+// CHECK: Processing Literal @[[SRC_PATH]]:4:15
+// CHECK: Asserting shape is '<3>'
+// CHECK: Processing Number '1' @[[SRC_PATH]]:4:16
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '2' @[[SRC_PATH]]:4:19
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '3' @[[SRC_PATH]]:4:22
+// CHECK: Is type 'f64'
+// CHECK: Shape '<3>' for literal is correct
+// CHECK: Is type '<3xf64>'
+// CHECK: Setting type for 'a' to '<3xf64>'
+// CHECK: Processing VarDecl 'foo' @[[SRC_PATH]]:5:5
+// CHECK: Inferring type for 'foo'
+// CHECK: Processing Literal @[[SRC_PATH]]:5:17
+// CHECK: Asserting shape is '<3>'
+// CHECK: Processing Number '4' @[[SRC_PATH]]:5:18
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '5' @[[SRC_PATH]]:5:21
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '6' @[[SRC_PATH]]:5:24
+// CHECK: Is type 'f64'
+// CHECK: Shape '<3>' for literal is correct
+// CHECK: Is type '<3xf64>'
+// CHECK: Setting type for 'foo' to '<3xf64>'
+// CHECK: Processing Return @[[SRC_PATH]]:6:5
+// CHECK: Processing Number '1' @[[SRC_PATH]]:6:12
+// CHECK: Is type 'f64'
+// CHECK: Return type is 'f64'
+// CHECK: Adding specialization to 'foo(_)' for 'fn(() -> f64)'
+// CHECK: Adding symbol 'foo(_)' to AST cache
+// CHECK: Processing Function 'main' @[[SRC_PATH]]:9:5
+// CHECK: Processing Return @[[SRC_PATH]]:10:5
+// CHECK: Processing Call 'foo' @[[SRC_PATH]]:10:12
+// CHECK: Found symbol 'foo(_)' in AST cache
+// CHECK: Getting specialization from 'foo(_)' for 'fn(() -> f64)'
+// CHECK: Is type 'f64'
+// CHECK: Return type is 'f64'
+// CHECK: Adding specialization to 'main(_)' for 'fn(() -> f64)'
+// CHECK: Adding symbol 'main(_)' to AST cache

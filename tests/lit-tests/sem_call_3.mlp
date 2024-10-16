@@ -11,9 +11,37 @@ def test() {
 // CHECK: Running DeclCheck on module '[[SRC_PATH]]'
 // CHECK: Added symbol 'a' to scope
 // CHECK: Found symbol 'a' in scope
-// CHECL: Removed symbol 'a' from scope
-// CHECK: Added symbol 'foo' to scope
-// CHECK: Found symbol 'foo' in scope
-// CHECK: Added symbol 'test' to scope
-// CHECK: Removed symbol 'foo' from scope
-// CHECK: Removed symbol 'test' from scope
+// CHECK: Removed symbol 'a' from scope
+// CHECK: Added symbol 'foo(_)' to scope
+// CHECK: Found symbol 'foo(_)' in scope
+// CHECK: Added symbol 'test(_)' to scope
+// CHECK: Removed symbol 'foo(_)' from scope
+// CHECK: Removed symbol 'test(_)' from scope
+
+// CHECK: Running TypeCheck on module '[[SRC_PATH]]'
+// CHECK: Processing Function 'foo' @[[SRC_PATH]]:3:5
+// CHECK: Found parameter 'a' @[[SRC_PATH]]:3:9
+// CHECK: Processing Return @[[SRC_PATH]]:4:5
+// CHECK: Processing Var 'a' @[[SRC_PATH]]:4:12
+// CHECK: Is type '<*xf64>'
+// CHECK: Return type is '<*xf64>'
+// CHECK: Adding specialization to 'foo(_)' for 'fn(<*xf64> -> <*xf64>)'
+// CHECK: Adding symbol 'foo(_)' to AST cache
+// CHECK: Processing Function 'test' @[[SRC_PATH]]:7:5
+// CHECK: Processing Return @[[SRC_PATH]]:8:5
+// CHECK: Processing Call 'foo' @[[SRC_PATH]]:8:12
+// CHECK: Found symbol 'foo(_)' in AST cache
+// CHECK: Processing Number '1' @[[SRC_PATH]]:8:16
+// CHECK: Is type 'f64'
+// CHECK: Getting specialization from 'foo(_)' for 'fn(<*xf64> -> <*xf64>)'
+// CHECK: Type for 'foo(_)' is underspecified
+// CHECK: Processing Function 'foo' @[[SRC_PATH]]:3:5
+// CHECK: Found parameter 'a' with type 'f64' @[[SRC_PATH]]:3:9
+// CHECK: Processing Return @[[SRC_PATH]]:4:5
+// CHECK: Processing Var 'a' @[[SRC_PATH]]:4:12
+// CHECK: Is type 'f64'
+// CHECK: Return type is 'f64'
+// CHECK: Adding specialization to 'foo(_)' for 'fn(f64 -> f64)'
+// CHECK: Is type 'f64'
+// CHECK: Return type is 'f64'
+// CHECK: Adding specialization to 'test(_)' for 'fn(() -> f64)'

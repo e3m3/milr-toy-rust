@@ -42,6 +42,7 @@ tokenkind       ::=
     | Comment
     | Colon
     | Def
+    | DotStar
     | Eoi
     | Eol
     | Ident
@@ -76,6 +77,7 @@ text            ::=
     | `/`
     | `*`
     | `=`
+    | `.*`
     | `def`
     | `print`
     | `return`
@@ -93,6 +95,7 @@ literal_list    ::= tensor_literal | tensor_literal Comma literal_list
 paren_expr      ::= ParenL expr ParenR
 ident_expr      ::= ident | ident ParenL expr ParenR
 primary         ::= ident_expr | number_expr | paren_expr | tensor_literal
+binop           ::= Plus | Slash | DotStar | Star | Minus
 binop_rhs       ::= ( binop primary )*
 expr            ::= primary binop_rhs
 type            ::= AngleL shape_list AngleR

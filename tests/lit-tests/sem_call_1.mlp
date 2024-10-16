@@ -3,22 +3,70 @@
 // RUN: @mlpc --verbose=sem --sem -e "def test() { var a<> = [2]; transpose(a); }" 2>&1 | @filecheck %s --check-prefix=CHECK_C
 
 // CHECK_A: Running DeclCheck on module 'Stdin'
-// CHECK_A: Found symbol 'print' in scope
-// CHECK_A: Added symbol 'test' to scope
-// CHECK_A: Removed symbol 'test' from scope
+// CHECK_A: Found symbol 'print(_)' in scope
+// CHECK_A: Added symbol 'test(_)' to scope
+// CHECK_A: Removed symbol 'test(_)' from scope
+
+// CHECK_A: Running TypeCheck on module 'Stdin'
+// CHECK_A: Processing Function 'test' @Stdin:1:5
+// CHECK_A: Processing Print @Stdin:1:14
+// CHECK_A: Processing Number '1' @Stdin:1:20
+// CHECK_A: Is type 'f64'
+// CHECK_A: Adding specialization to 'print(_)' for 'fn(f64 -> ())'
+// CHECK_A: Found no terminators
+// CHECK_A: Adding specialization to 'test(_)' for 'fn(() -> ())'
+// CHECK_A: Adding symbol 'test(_)' to AST cache
 
 // CHECK_B: Running DeclCheck on module 'Stdin'
 // CHECK_B: Added symbol 'a' to scope
-// CHECK_B: Found symbol 'print' in scope
+// CHECK_B: Found symbol 'print(_)' in scope
 // CHECK_B: Found symbol 'a' in scope
 // CHECK_B: Removed symbol 'a' from scope
-// CHECK_B: Added symbol 'test' to scope
-// CHECK_B: Removed symbol 'test' from scope
+// CHECK_B: Added symbol 'test(_)' to scope
+// CHECK_B: Removed symbol 'test(_)' from scope
+
+// CHECK_B: Running TypeCheck on module 'Stdin'
+// CHECK_B: Processing Function 'test' @Stdin:1:5
+// CHECK_B: Processing VarDecl 'a' @Stdin:1:14
+// CHECK_B: Inferring type for 'a'
+// CHECK_B: Processing Literal @Stdin:1:24
+// CHECK_B: Asserting shape is '<1>'
+// CHECK_B: Processing Number '2' @Stdin:1:25
+// CHECK_B: Is type 'f64'
+// CHECK_B: Shape '<1>' for literal is correct
+// CHECK_B: Is type '<1xf64>'
+// CHECK_B: Setting type for 'a' to '<1xf64>'
+// CHECK_B: Processing Print @Stdin:1:29
+// CHECK_B: Processing Var 'a' @Stdin:1:35
+// CHECK_B: Is type '<1xf64>'
+// CHECK_B: Adding specialization to 'print(_)' for 'fn(<1xf64> -> ())'
+// CHECK_B: Found no terminators
+// CHECK_B: Adding specialization to 'test(_)' for 'fn(() -> ())'
+// CHECK_B: Adding symbol 'test(_)' to AST cache
 
 // CHECK_C: Running DeclCheck on module 'Stdin'
 // CHECK_C: Added symbol 'a' to scope
-// CHECK_C: Found symbol 'transpose' in scope
+// CHECK_C: Found symbol 'transpose(_)' in scope
 // CHECK_C: Found symbol 'a' in scope
 // CHECK_C: Removed symbol 'a' from scope
-// CHECK_C: Added symbol 'test' to scope
-// CHECK_C: Removed symbol 'test' from scope
+// CHECK_C: Added symbol 'test(_)' to scope
+// CHECK_C: Removed symbol 'test(_)' from scope
+
+// CHECK_C: Running TypeCheck on module 'Stdin'
+// CHECK_C: Processing Function 'test' @Stdin:1:5
+// CHECK_C: Processing VarDecl 'a' @Stdin:1:14
+// CHECK_C: Inferring type for 'a'
+// CHECK_C: Processing Literal @Stdin:1:24
+// CHECK_C: Asserting shape is '<1>'
+// CHECK_C: Processing Number '2' @Stdin:1:25
+// CHECK_C: Is type 'f64'
+// CHECK_C: Shape '<1>' for literal is correct
+// CHECK_C: Is type '<1xf64>'
+// CHECK_C: Setting type for 'a' to '<1xf64>'
+// CHECK_C: Processing Transpose @Stdin:1:29
+// CHECK_C: Processing Var 'a' @Stdin:1:39
+// CHECK_C: Is type '<1xf64>'
+// CHECK_C: Adding specialization to 'transpose(_)' for 'fn(<1xf64> -> <1xf64>)'
+// CHECK_C: Found no terminators
+// CHECK_C: Adding specialization to 'test(_)' for 'fn(() -> ())'
+// CHECK_C: Adding symbol 'test(_)' to AST cache
