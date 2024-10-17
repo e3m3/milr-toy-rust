@@ -116,6 +116,7 @@ pub struct TypeTensor {
 pub trait ExprDisplay {
     fn expr_fmt(&self, f: &mut fmt::Formatter, depth: usize, loc: &Location) -> fmt::Result;
 
+    #[allow(dead_code)]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.expr_fmt(f, 0, &Default::default())
     }
@@ -344,6 +345,7 @@ impl Location {
     }
 }
 
+#[allow(non_snake_case)]
 impl Shape {
     pub fn new(dims: &Dims) -> Self {
         Shape{0: dims.clone()}
@@ -397,7 +399,7 @@ impl Shape {
     /// Get a new shape of rank 1 with dimesnions equal to the product of the all the ranks.
     pub fn flatten(&self) -> Self {
         if self.is_empty() || self.rank() <= 1 {
-            self.clone();
+            return self.clone();
         }
         Self::new(&vec![self.get().iter().product()])
     }
@@ -467,6 +469,7 @@ impl Symbol {
         self.0.find(",,").is_some()
     }
 
+    #[allow(dead_code)]
     pub fn to_function(&self) -> Self {
         if self.is_function() {
             self.clone()
@@ -694,6 +697,7 @@ impl TypeTensor {
         self.get_shape().is_empty()
     }
 
+    #[allow(non_snake_case)]
     pub fn mat_mul(a: &Self, b: &Self) -> Self {
         let t_a = a.get_type();
         let t_b = b.get_type();
@@ -771,6 +775,7 @@ impl BinopExpr {
         self.op
     }
 
+    #[allow(dead_code)]
     pub fn get_precedence(&self) -> BinopPrecedence {
         BinopPrecedence::new(self.op)
     }
@@ -998,8 +1003,8 @@ impl Default for Values {
 }
 
 impl SharedValues {
-    pub fn new(values: Vec<SharedValue>) -> Self {
-        SharedValues{0: values}
+    pub fn new(values: &Vec<SharedValue>) -> Self {
+        SharedValues{0: values.clone()}
     }
 
     pub fn get(&self, i: usize) -> &SharedValue {
@@ -1078,6 +1083,7 @@ impl Expr {
         Rc::from(self.clone())
     }
 
+    #[allow(dead_code)]
     pub fn as_value(&mut self) -> Value {
         Value::new(mem::take(self))
     }
@@ -1188,12 +1194,12 @@ impl ExprKind {
             ExprKind::Binop(expr)       => Some(expr.get_symbol()),
             ExprKind::Call(expr)        => Some(expr.get_symbol()),
             ExprKind::Function(expr)    => Some(expr.get_symbol()),
-            ExprKind::Literal(expr)     => None,
+            ExprKind::Literal(_expr)    => None,
             ExprKind::Module(expr)      => Some(expr.get_symbol()),
-            ExprKind::Number(expr)      => None,
+            ExprKind::Number(_expr)     => None,
             ExprKind::Print(expr)       => Some(expr.get_symbol()),
             ExprKind::Prototype(expr)   => Some(expr.get_symbol()),
-            ExprKind::Return(expr)      => None,
+            ExprKind::Return(_expr)     => None,
             ExprKind::Transpose(expr)   => Some(expr.get_symbol()),
             ExprKind::Unset()           => None,
             ExprKind::Var(expr)         => Some(expr.get_symbol()),

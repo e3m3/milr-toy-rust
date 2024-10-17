@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 use std::collections::HashMap;
-use std::fmt;
-use std::hash;
 
 use crate::ast;
 use crate::exit_code;
@@ -16,20 +14,17 @@ use ast::Binop;
 use ast::CheckUnderspecified;
 use ast::Dims;
 use ast::Expr;
-use ast::ExprKind;
 use ast::ExprKindID;
 use ast::GenResult;
 use ast::SharedValue;
 use ast::Shape;
 use ast::Symbol;
 use ast::TDim;
-use ast::TMlp;
 use ast::Type;
 use ast::TypeBase;
 use ast::TypeMap;
 use ast::TypeSignature;
 use ast::TypeTensor;
-use ast::Value;
 use ast::BinopExpr;
 use ast::CallExpr;
 use ast::FunctionExpr;
@@ -73,6 +68,10 @@ pub struct TypeSignatureMatchScore(f64);
 impl <'a> TypeCheck<'a> {
     pub fn new(options: &'a RunOptions) -> Self {
         TypeCheck{options, state: Default::default()}
+    }
+
+    pub fn get_type_map_mut(&mut self) -> &mut TypeMap {
+        self.state.get_type_map_mut()
     }
 
     fn process_binop(
@@ -121,12 +120,12 @@ impl <'a> TypeCheck<'a> {
         if t_lhs == t_rhs {
             // Element-wise operations for matching types
             let t = t_lhs.clone();
-            self.specialize_function(sym, &t_proto, &t, false);
+            self.specialize_function(sym, &t_proto, &t, false)?;
             self.emit_message(format!("Is type '{}'", t));
             Ok(t)
         } else if op == Binop::Mul && t_lhs.is_scalar() {
             let t = t_rhs.clone();
-            self.specialize_function(sym, &t_proto, &t, false);
+            self.specialize_function(sym, &t_proto, &t, false)?;
             self.emit_message(format!("Is type '{}'", t));
             Ok(t)
         } else {
@@ -158,7 +157,7 @@ impl <'a> TypeCheck<'a> {
         } else {
             Type::mat_mul(t_lhs, t_rhs)
         };
-        self.specialize_function(sym, &t_proto, &t, false);
+        self.specialize_function(sym, &t_proto, &t, false)?;
         self.emit_message(format!("Is type '{}'", t));
         Ok(t)
     }
@@ -273,7 +272,7 @@ impl <'a> TypeCheck<'a> {
             let t = value.accept_gen(self, None)?;
             if i == 0 {
                 match t {
-                    Type::Scalar(ts)    => (),
+                    Type::Scalar(_ts)   => (),
                     Type::Tensor(tt)    => dims.append(&mut tt.get_shape().get().clone()),
                     _                   => {
                         eprintln!("Unexpected type '{}' in literal expression", t);
@@ -391,10 +390,9 @@ impl <'a> TypeCheck<'a> {
         } else {
             for (i, arg) in expr.get_args().iter().enumerate() {
                 let t = if acc.is_some() {
-                    assert!(expr.get_args().len() == acc.unwrap().len());
-                    let mut param_iter = acc.unwrap().clone();
-                    param_iter.set_index(i);
-                    arg.accept_gen(self, Some(&param_iter))?
+                    let param_iter = acc.unwrap();
+                    assert!(expr.get_args().len() == param_iter.len());
+                    arg.accept_gen(self, Some(&ParamIter::new_with_index(param_iter.get_params(), i)))?
                 } else {
                     arg.accept_gen(self, None)?
                 };
@@ -530,14 +528,6 @@ impl <'a> TypeCheck<'a> {
 }
 
 impl TypeCheckState {
-    pub fn new() -> Self {
-        TypeCheckState{
-            ast_cache: Default::default(),
-            map: TypeMap::default(),
-            module: None,
-        }
-    }
-
     pub fn add_ast_in_cache(&mut self, sym: &Symbol, ast: &SharedValue) -> () {
         if !self.ast_cache.contains_key(sym) {
             if self.ast_cache.insert(sym.clone(), ast.clone()).is_some() {
@@ -551,26 +541,12 @@ impl TypeCheckState {
         self.ast_cache.get(sym).cloned()
     }
 
-    pub fn get_module(&self) -> &Symbol {
-        match &self.module {
-            Some(m) => &m,
-            None    => {
-                eprintln!("Unexpected empty current module");
-                exit(ExitCode::SemanticError);
-            },
-        }
-    }
-
     pub fn get_type_map(&self) -> &TypeMap {
         &self.map
     }
 
     pub fn get_type_map_mut(&mut self) -> &mut TypeMap {
         &mut self.map
-    }
-
-    pub fn has_terminator(&self) -> bool {
-        self.map.contains_symbol(&Self::symbol_terminator())
     }
 
     pub fn push_function(&mut self, t: &Type) -> () {
@@ -641,16 +617,16 @@ impl ParamIter {
         }
     }
 
+    pub fn get_params(&self) -> &Vec<Type> {
+        &self.params
+    }
+
     pub fn len(&self) -> usize {
         self.params.len()
     }
 
     pub fn next(&self) -> &Type {
         self.get(self.index)
-    }
-
-    pub fn set_index(&mut self, index: usize) -> () {
-        self.index = index;
     }
 }
 

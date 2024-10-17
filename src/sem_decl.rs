@@ -14,7 +14,6 @@ use ast::AcceptVisit;
 use ast::AstVisitor;
 use ast::Binop;
 use ast::Expr;
-use ast::ExprKind;
 use ast::ExprKindID;
 use ast::Symbol;
 use ast::BinopExpr;
@@ -46,10 +45,6 @@ pub struct DeclCheck<'a> {
 impl <T: Clone + fmt::Display + Eq + hash::Hash> Scope<T> {
     pub fn new() -> Self {
         Scope{vars: Default::default()}
-    }
-
-    pub fn iter(&self) -> impl Iterator + '_ {
-        self.vars.iter()
     }
 
     /// Returns true if symbol is inserted in scope; else false
@@ -174,6 +169,7 @@ impl <'a> DeclCheck<'a> {
     }
 
     fn check_literal(&mut self, ast: &dyn Ast<Expr>) -> bool {
+        let _expr: &LiteralExpr = ast.as_impl().get_kind().to_literal().unwrap();
         true
     }
 
@@ -207,6 +203,7 @@ impl <'a> DeclCheck<'a> {
     }
 
     fn check_number(&mut self, ast: &dyn Ast<Expr>) -> bool {
+        let _expr: &NumberExpr = ast.as_impl().get_kind().to_number().unwrap();
         true
     }
 

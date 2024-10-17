@@ -20,6 +20,7 @@ impl CommandResult {
     }
 }
 
+#[allow(dead_code)]
 pub struct Command {}
 
 impl Command {
