@@ -386,6 +386,7 @@ impl <'a> TypeCheck<'a> {
         acc: Option<&mut ParamIter>,
     ) -> GenResult<Type> {
         let expr: &PrototypeExpr = ast.as_impl().get_kind().to_prototype().unwrap();
+        let sym = expr.get_symbol();
         let mut arg_types: Vec<Type> = Vec::new();
         if expr.is_empty() {
             arg_types.push(Type::new_unit());
@@ -398,7 +399,9 @@ impl <'a> TypeCheck<'a> {
         } else {
             let mut param_iter = acc.unwrap();
             let args = expr.get_args();
-            assert!(args.len() == param_iter.len());
+            if args.len() != param_iter.len() {
+                Err(format!("Expected '{}' arguments for prototype '{}'", args.len(), sym))?
+            }
             for arg in args.iter() {
                 let t_param = arg.accept_gen(self, Some(&mut param_iter))?;
                 arg_types.push(t_param);
