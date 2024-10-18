@@ -44,6 +44,7 @@ use options::VerboseMode;
 
 #[derive(Clone,Default)]
 pub struct ParamIter {
+    param: Box<Type>,
     params: Vec<Type>,
     index: usize,
 }
@@ -77,7 +78,7 @@ impl <'a> TypeCheck<'a> {
     fn process_binop(
         &mut self,
         ast: &dyn Ast<Expr>,
-        _acc: Option<&ParamIter>,
+        _acc: Option<&mut ParamIter>,
     ) -> GenResult<Type> {
         let expr: &BinopExpr = ast.as_impl().get_kind().to_binop().unwrap();
         let sym = expr.get_symbol();
@@ -179,7 +180,7 @@ impl <'a> TypeCheck<'a> {
     fn process_call(
         &mut self,
         ast: &dyn Ast<Expr>,
-        _acc: Option<&ParamIter>,
+        _acc: Option<&mut ParamIter>,
     ) -> GenResult<Type> {
         let expr: &CallExpr = ast.as_impl().get_kind().to_call().unwrap();
         self.emit_message(format!("Processing Call '{}' {}", expr.get_callee(), ast.get_loc()));
@@ -203,8 +204,8 @@ impl <'a> TypeCheck<'a> {
             self.emit_message(format!("Getting specialization from '{}' for '{}'", sym, t));
             let t = if t.is_underspecified() {
                 self.emit_message(format!("Type for '{}' is underspecified", sym));
-                let param_iter = ParamIter::new(&arg_types);
-                ast_cached.unwrap().accept_gen(self, Some(&param_iter))?
+                let mut param_iter = ParamIter::new(&arg_types);
+                ast_cached.unwrap().accept_gen(self, Some(&mut param_iter))?
             } else {
                 t
             };
@@ -234,7 +235,7 @@ impl <'a> TypeCheck<'a> {
     fn process_function(
         &mut self,
         ast: &dyn Ast<Expr>,
-        acc: Option<&ParamIter>,
+        acc: Option<&mut ParamIter>,
     ) -> GenResult<Type> {
         let expr: &FunctionExpr = ast.as_impl().get_kind().to_function().unwrap();
         let sym = expr.get_symbol();
@@ -260,7 +261,7 @@ impl <'a> TypeCheck<'a> {
     fn process_literal(
         &mut self,
         ast: &dyn Ast<Expr>,
-        _acc: Option<&ParamIter>,
+        _acc: Option<&mut ParamIter>,
     ) -> GenResult<Type> {
         let expr: &LiteralExpr = ast.as_impl().get_kind().to_literal().unwrap();
         self.emit_message(format!("Processing Literal {}", ast.get_loc()));
@@ -315,7 +316,7 @@ impl <'a> TypeCheck<'a> {
     fn process_module(
         &mut self,
         ast: &dyn Ast<Expr>,
-        _acc: Option<&ParamIter>,
+        _acc: Option<&mut ParamIter>,
     ) -> GenResult<Type> {
         let expr: &ModuleExpr = ast.as_impl().get_kind().to_module().unwrap();
         self.emit_message(format!("Running TypeCheck on module '{}'", expr.get_name()));
@@ -333,7 +334,7 @@ impl <'a> TypeCheck<'a> {
     fn process_number(
         &mut self,
         ast: &dyn Ast<Expr>,
-        _acc: Option<&ParamIter>,
+        _acc: Option<&mut ParamIter>,
     ) -> GenResult<Type> {
         let expr: &NumberExpr = ast.as_impl().get_kind().to_number().unwrap();
         self.emit_message(format!("Processing Number '{}' {}", expr.get_value(), ast.get_loc()));
@@ -345,28 +346,29 @@ impl <'a> TypeCheck<'a> {
     fn process_param(
         &mut self,
         ast: &dyn Ast<Expr>,
-        acc: Option<&ParamIter>,
+        acc: Option<&mut ParamIter>,
     ) -> GenResult<Type> {
         let expr: &VarExpr = ast.as_impl().get_kind().to_var().unwrap();
         assert!(expr.is_param());
         let sym = expr.get_symbol();
         if acc.is_none() {
+            /// Prototype is underspecified; default arguments to unranked tensors
             self.emit_message(format!("Found parameter '{}' {}", sym, ast.get_loc()));
             let t = Type::new_tensor(TypeTensor::new_unranked(TypeBase::F64));
             self.state.get_type_map_mut().add_type(&sym, &t)?;
             Ok(t)
         } else {
-            let t = acc.unwrap().next();
+            let t = acc.unwrap().next().unwrap();
             self.emit_message(format!("Found parameter '{}' with type '{}' {}", sym, t, ast.get_loc()));
             self.state.get_type_map_mut().add_type(&sym, &t)?;
-            Ok(t.clone())
+            Ok(*t)
         }
     }
 
     fn process_print(
         &mut self,
         ast: &dyn Ast<Expr>,
-        _acc: Option<&ParamIter>,
+        _acc: Option<&mut ParamIter>,
     ) -> GenResult<Type> {
         let expr: &PrintExpr = ast.as_impl().get_kind().to_print().unwrap();
         self.emit_message(format!("Processing Print {}", ast.get_loc()));
@@ -381,22 +383,25 @@ impl <'a> TypeCheck<'a> {
     fn process_prototype(
         &mut self,
         ast: &dyn Ast<Expr>,
-        acc: Option<&ParamIter>,
+        acc: Option<&mut ParamIter>,
     ) -> GenResult<Type> {
         let expr: &PrototypeExpr = ast.as_impl().get_kind().to_prototype().unwrap();
         let mut arg_types: Vec<Type> = Vec::new();
         if expr.is_empty() {
             arg_types.push(Type::new_unit());
+        } else if acc.is_none() {
+            let args = expr.get_args();
+            for arg in args.iter() {
+                let t_param = arg.accept_gen(self, None)?;
+                arg_types.push(t_param);
+            }
         } else {
-            for (i, arg) in expr.get_args().iter().enumerate() {
-                let t = if acc.is_some() {
-                    let param_iter = acc.unwrap();
-                    assert!(expr.get_args().len() == param_iter.len());
-                    arg.accept_gen(self, Some(&ParamIter::new_with_index(param_iter.get_params(), i)))?
-                } else {
-                    arg.accept_gen(self, None)?
-                };
-                arg_types.push(t);
+            let mut param_iter = acc.unwrap();
+            let args = expr.get_args();
+            assert!(args.len() == param_iter.len());
+            for arg in args.iter() {
+                let t_param = arg.accept_gen(self, Some(&mut param_iter))?;
+                arg_types.push(t_param);
             }
         }
         let t = Type::new_signature(TypeSignature::new_prototype(arg_types));
@@ -406,7 +411,7 @@ impl <'a> TypeCheck<'a> {
     fn process_return(
         &mut self,
         ast: &dyn Ast<Expr>,
-        _acc: Option<&ParamIter>,
+        _acc: Option<&mut ParamIter>,
     ) -> GenResult<Type> {
         let expr: &ReturnExpr = ast.as_impl().get_kind().to_return().unwrap();
         self.emit_message(format!("Processing Return {}", ast.get_loc()));
@@ -423,7 +428,7 @@ impl <'a> TypeCheck<'a> {
     fn process_transpose(
         &mut self,
         ast: &dyn Ast<Expr>,
-        _acc: Option<&ParamIter>,
+        _acc: Option<&mut ParamIter>,
     ) -> GenResult<Type> {
         let expr: &TransposeExpr = ast.as_impl().get_kind().to_transpose().unwrap();
         self.emit_message(format!("Processing Transpose {}", ast.get_loc()));
@@ -445,7 +450,7 @@ impl <'a> TypeCheck<'a> {
     fn process_var(
         &mut self,
         ast: &dyn Ast<Expr>,
-        acc: Option<&ParamIter>,
+        acc: Option<&mut ParamIter>,
     ) -> GenResult<Type> {
         let expr: &VarExpr = ast.as_impl().get_kind().to_var().unwrap();
         if expr.is_param() {
@@ -467,7 +472,7 @@ impl <'a> TypeCheck<'a> {
     fn process_var_decl(
         &mut self,
         ast: &dyn Ast<Expr>,
-        _acc: Option<&ParamIter>,
+        _acc: Option<&mut ParamIter>,
     ) -> GenResult<Type> {
         let expr: &VarDeclExpr = ast.as_impl().get_kind().to_var_decl().unwrap();
         let sym = expr.get_symbol();
@@ -600,11 +605,11 @@ impl TypeCheckState {
 
 impl ParamIter {
     pub fn new(params: &Vec<Type>) -> Self {
-        ParamIter{params: params.clone(), index: Default::default()}
+        ParamIter{param: Box::new(Type::default()), params: params.clone(), index: Default::default()}
     }
 
     pub fn new_with_index(params: &Vec<Type>, index: usize) -> Self {
-        ParamIter{params: params.clone(), index}
+        ParamIter{param: Box::new(Type::default()), params: params.clone(), index}
     }
 
     pub fn get(&self, index: usize) -> &Type {
@@ -624,9 +629,20 @@ impl ParamIter {
     pub fn len(&self) -> usize {
         self.params.len()
     }
+}
 
-    pub fn next(&self) -> &Type {
-        self.get(self.index)
+impl Iterator for ParamIter {
+    type Item = Box<Type>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < self.len() {
+            let param = self.params.get(self.index).unwrap();
+            self.index += 1;
+            self.param = Box::new(param.clone());
+            Some(self.param.clone())
+        } else {
+            None
+        }
     }
 }
 
@@ -694,8 +710,8 @@ impl TypeSignatureMatchScore {
     }
 }
 
-impl <'a> AstGenerator<Expr, Option<&ParamIter>, Type> for TypeCheck<'a> {
-    fn gen(&mut self, ast: &dyn Ast<Expr>, acc: Option<&ParamIter>) -> GenResult<Type> {
+impl <'a> AstGenerator<Expr, Option<&mut ParamIter>, Type> for TypeCheck<'a> {
+    fn gen(&mut self, ast: &dyn Ast<Expr>, acc: Option<&mut ParamIter>) -> GenResult<Type> {
         let expr = ast.as_impl();
         match expr.get_kind_id() {
             ExprKindID::Binop       => self.process_binop(ast, acc),
