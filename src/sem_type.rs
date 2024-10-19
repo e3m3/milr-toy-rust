@@ -352,7 +352,7 @@ impl <'a> TypeCheck<'a> {
         assert!(expr.is_param());
         let sym = expr.get_symbol();
         if acc.is_none() {
-            /// Prototype is underspecified; default arguments to unranked tensors
+            // Prototype is underspecified; default arguments to unranked tensors
             self.emit_message(format!("Found parameter '{}' {}", sym, ast.get_loc()));
             let t = Type::new_tensor(TypeTensor::new_unranked(TypeBase::F64));
             self.state.get_type_map_mut().add_type(&sym, &t)?;
@@ -611,10 +611,6 @@ impl ParamIter {
         ParamIter{param: Box::new(Type::default()), params: params.clone(), index: Default::default()}
     }
 
-    pub fn new_with_index(params: &Vec<Type>, index: usize) -> Self {
-        ParamIter{param: Box::new(Type::default()), params: params.clone(), index}
-    }
-
     pub fn get(&self, index: usize) -> &Type {
         match self.params.get(index) {
             Some(t) => t,
@@ -639,9 +635,8 @@ impl Iterator for ParamIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.len() {
-            let param = self.params.get(self.index).unwrap();
+            self.param = Box::new(self.get(self.index).clone());
             self.index += 1;
-            self.param = Box::new(param.clone());
             Some(self.param.clone())
         } else {
             None
