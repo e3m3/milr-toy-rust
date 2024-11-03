@@ -66,18 +66,18 @@ def main() {
 // CHECK: Processing Binop '*' @[[SRC_PATH]]:6:25
 // CHECK: Processing Transpose @[[SRC_PATH]]:6:12
 // CHECK: Processing Var 'a' @[[SRC_PATH]]:6:22
-// CHECK: Is type '<*xf64>'
-// CHECK: Adding specialization to 'transpose(_)' for 'fn(<*xf64> -> <*xf64>)'
-// CHECK: Is type '<*xf64>'
+// CHECK: Is type 'undef'
+// CHECK: Adding specialization to 'transpose(_)' for 'fn(undef -> undef)'
+// CHECK: Is type 'undef'
 // CHECK: Processing Transpose @[[SRC_PATH]]:6:27
 // CHECK: Processing Var 'b' @[[SRC_PATH]]:6:37
-// CHECK: Is type '<*xf64>'
-// CHECK: Adding specialization to 'transpose(_)' for 'fn(<*xf64> -> <*xf64>)'
-// CHECK: Is type '<*xf64>'
-// CHECK: Adding specialization to 'mul(_)' for 'fn(<*xf64>, <*xf64> -> <*xf64>)'
-// CHECK: Is type '<*xf64>'
-// CHECK: Return type is '<*xf64>'
-// CHECK: Adding specialization to 'multiply_transpose(_)' for 'fn(<*xf64>, <*xf64> -> <*xf64>)'
+// CHECK: Is type 'undef'
+// CHECK: Adding specialization to 'transpose(_)' for 'fn(undef -> undef)'
+// CHECK: Is type 'undef'
+// CHECK: Adding specialization to 'mul(_)' for 'fn(undef, undef -> undef)'
+// CHECK: Is type 'undef'
+// CHECK: Return type is 'undef'
+// CHECK: Adding specialization to 'multiply_transpose(_)' for 'fn(undef, undef -> undef)'
 // CHECK: Adding symbol 'multiply_transpose(_)' to AST cache
 // CHECK: Processing Function 'main' @[[SRC_PATH]]:9:5
 // CHECK: Processing VarDecl 'a' @[[SRC_PATH]]:11:5
@@ -136,7 +136,7 @@ def main() {
 // CHECK: Is type '<2x3xf64>'
 // CHECK: Processing Var 'b' @[[SRC_PATH]]:16:35
 // CHECK: Is type '<2x3xf64>'
-// CHECK: Getting specialization from 'multiply_transpose(_)' for 'fn(<*xf64>, <*xf64> -> <*xf64>)'
+// CHECK: Getting specialization from 'multiply_transpose(_)' for 'fn(undef, undef -> undef)'
 // CHECK: Type for 'multiply_transpose(_)' is underspecified
 // CHECK: Processing Function 'multiply_transpose' @[[SRC_PATH]]:5:5
 // CHECK: Found parameter 'a' with type '<2x3xf64>' @[[SRC_PATH]]:5:24
@@ -178,7 +178,7 @@ def main() {
 // CHECK: Is type '<3x2xf64>'
 // CHECK: Processing Var 'd' @[[SRC_PATH]]:24:35
 // CHECK: Is type '<3x2xf64>'
-// CHECK: Getting specialization from 'multiply_transpose(_)' for 'fn(<*xf64>, <*xf64> -> <*xf64>)'
+// CHECK: Getting specialization from 'multiply_transpose(_)' for 'fn(undef, undef -> undef)'
 // CHECK: Type for 'multiply_transpose(_)' is underspecified
 // CHECK: Processing Function 'multiply_transpose' @[[SRC_PATH]]:5:5
 // CHECK: Found parameter 'a' with type '<3x2xf64>' @[[SRC_PATH]]:5:24

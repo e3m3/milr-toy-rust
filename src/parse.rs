@@ -317,7 +317,7 @@ impl <'a> Parser<'a> {
     /// Optimize empty function definitions out
     fn parse_definition(&'a self, iter: &mut ParserIter) -> Option<SharedValue> {
         let proto = self.parse_prototype(iter);
-        let loc = proto.get_loc().clone();
+        let loc = proto.get_location().clone();
         let mut values: SharedValues = Default::default();
         self.parse_block(iter, &mut values);
         if !values.is_empty() {
@@ -381,7 +381,8 @@ impl <'a> Parser<'a> {
         if functions.is_empty() {
             Self::emit_error(format!("Unexpected empty module '{}'", name));
         }
-        Expr::new_module(name.to_string(), &functions, self.get_location(iter)).as_shared()
+        let loc = ast::Location::new(functions.get(0).get_location().get_name().clone(), 1, 1);
+        Expr::new_module(name.to_string(), &functions, loc).as_shared()
     }
 
     fn parse_number_expr(&'a self, iter: &mut ParserIter) -> SharedValue {

@@ -36,7 +36,7 @@ pub trait AcceptVisit<T> {
 
 pub trait Ast<T>: fmt::Display {
     fn as_impl(&self) -> &T;
-    fn get_loc(&self) -> &Location;
+    fn get_location(&self) -> &Location;
     fn get_symbol(&self) -> Option<Symbol>;
 }
 
@@ -288,7 +288,7 @@ impl Ast<Expr> for Expr {
         self
     }
 
-    fn get_loc(&self) -> &Location {
+    fn get_location(&self) -> &Location {
         &self.loc
     }
 
@@ -342,6 +342,10 @@ impl Location {
 
     pub fn get_line(&self) -> usize {
         self.line_no
+    }
+
+    pub fn get_name(&self) -> &String {
+        &self.file_name
     }
 }
 
@@ -1312,9 +1316,9 @@ impl ExprDisplay for BinopExpr {
     fn expr_fmt(&self, f: &mut fmt::Formatter, depth: usize, loc: &Location) -> fmt::Result {
         let indent = Self::indent(depth);
         write!(f, "{}Binop: {} {}\n", indent, self.get_op(), loc)?;
-        self.lhs.get_kind().expr_fmt(f, depth + 1, self.lhs.get_loc())?;
+        self.lhs.get_kind().expr_fmt(f, depth + 1, self.lhs.get_location())?;
         write!(f, "\n")?;
-        self.rhs.get_kind().expr_fmt(f, depth + 1, self.rhs.get_loc())
+        self.rhs.get_kind().expr_fmt(f, depth + 1, self.rhs.get_location())
     }
 }
 
@@ -1332,7 +1336,7 @@ impl ExprDisplay for CallExpr {
 
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.kind.expr_fmt(f, 0, self.get_loc())
+        self.kind.expr_fmt(f, 0, self.get_location())
     }
 }
 
@@ -1379,10 +1383,10 @@ impl fmt::Display for ExprKindID {
 impl ExprDisplay for FunctionExpr {
     fn expr_fmt(&self, f: &mut fmt::Formatter, depth: usize, _loc: &Location) -> fmt::Result {
         let indent = Self::indent(depth);
-        self.proto.get_kind().expr_fmt(f, depth, self.proto.get_loc())?;
+        self.proto.get_kind().expr_fmt(f, depth, self.proto.get_location())?;
         write!(f, "\n{}Block {}\n", indent, "{")?;
         for value in self.values.0.iter() {
-            value.get_kind().expr_fmt(f, depth + 1, value.get_loc())?;
+            value.get_kind().expr_fmt(f, depth + 1, value.get_location())?;
             write!(f, "\n")?;
         }
         write!(f, "{}{} // Block", indent, "}")
@@ -1423,7 +1427,7 @@ impl ExprDisplay for PrintExpr {
     fn expr_fmt(&self, f: &mut fmt::Formatter, depth: usize, loc: &Location) -> fmt::Result {
         let indent = Self::indent(depth);
         write!(f, "{}Print: {}\n", indent, loc)?;
-        self.value.get_kind().expr_fmt(f, depth + 1, self.value.get_loc())
+        self.value.get_kind().expr_fmt(f, depth + 1, self.value.get_location())
     }
 }
 
@@ -1456,7 +1460,7 @@ impl ExprDisplay for ReturnExpr {
         } else {
             write!(f, "{}Return: {}\n", indent, loc)?;
             let value = self.value.as_ref().unwrap();
-            value.get_kind().expr_fmt(f, depth + 1, value.get_loc())
+            value.get_kind().expr_fmt(f, depth + 1, value.get_location())
         }
     }
 }
@@ -1473,7 +1477,7 @@ impl ExprDisplay for SharedValues {
                 (depth, "\n")
             };
             for (i, value) in self.0.iter().enumerate() {
-                value.get_kind().expr_fmt(f, d, value.get_loc())?;
+                value.get_kind().expr_fmt(f, d, value.get_location())?;
                 if i < self.0.len() - 1 {
                     write!(f, "{}", sep)?;
                     if is_num && i % 16 == 15 {
@@ -1559,7 +1563,7 @@ impl ExprDisplay for TransposeExpr {
     fn expr_fmt(&self, f: &mut fmt::Formatter, depth: usize, loc: &Location) -> fmt::Result {
         let indent = Self::indent(depth);
         write!(f, "{}Transpose: {}\n", indent, loc)?;
-        self.value.get_kind().expr_fmt(f, depth + 1, self.value.get_loc())
+        self.value.get_kind().expr_fmt(f, depth + 1, self.value.get_location())
     }
 }
 
@@ -1575,7 +1579,7 @@ impl ExprDisplay for Values {
                 (depth, "\n")
             };
             for (i, value) in self.0.iter().enumerate() {
-                value.get_kind().expr_fmt(f, d, value.get_loc())?;
+                value.get_kind().expr_fmt(f, d, value.get_location())?;
                 if i < self.0.len() - 1 {
                     write!(f, "{}", sep)?;
                     if is_num && i % 16 == 15 {
@@ -1599,6 +1603,6 @@ impl ExprDisplay for VarDeclExpr {
     fn expr_fmt(&self, f: &mut fmt::Formatter, depth: usize, loc: &Location) -> fmt::Result {
         let indent = Self::indent(depth);
         write!(f, "{}VarDecl: {}{} {}\n", indent, self.name, self.shape, loc)?;
-        self.value.get_kind().expr_fmt(f, depth + 1, self.value.get_loc())
+        self.value.get_kind().expr_fmt(f, depth + 1, self.value.get_location())
     }
 }

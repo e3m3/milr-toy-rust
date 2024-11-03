@@ -1,0 +1,24 @@
+// RUN: @mlpc --verbose=parser --parse %s 2>&1 | @filecheck %s
+
+def test() {
+    var a = 2.0;
+    print(a);
+}
+
+// CHECK: Consumed expected token 'Def:def' at position '0'
+// CHECK: Consumed expected token 'Ident:test' at position '1'
+// CHECK: Consumed expected token 'ParenL:(' at position '2'
+// CHECK: Consumed expected token 'ParenR:)' at position '3'
+// CHECK: Consumed expected token 'BraceL:{' at position '4'
+// CHECK: Consumed expected token 'Var:var' at position '5'
+// CHECK: Consumed expected token 'Ident:a' at position '6'
+// CHECK: Consumed expected token 'Assign:=' at position '7'
+// CHECK: Consumed expected token 'Number:2.0' at position '8'
+// CHECK: Consumed expected token 'Semicolon:;' at position '9'
+// CHECK: Consumed expected token 'Print:print' at position '10'
+// CHECK: Consumed expected token 'ParenL:(' at position '11'
+// CHECK: Consumed expected token 'Ident:a' at position '12'
+// CHECK: Consumed expected token 'ParenR:)' at position '13'
+// CHECK: Consumed expected token 'Semicolon:;' at position '14'
+// CHECK: Consumed expected token 'BraceR:}' at position '15'
+// CHECK: Consumed expected token 'Eoi:' at position '16'

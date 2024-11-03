@@ -83,16 +83,16 @@ impl <'a> TypeCheck<'a> {
         let expr: &BinopExpr = ast.as_impl().get_kind().to_binop().unwrap();
         let sym = expr.get_symbol();
         let op = expr.get_op();
-        self.emit_message(format!("Processing Binop '{}' {}", op, ast.get_loc()));
+        self.emit_message(format!("Processing Binop '{}' {}", op, ast.get_location()));
         let t_lhs = expr.get_lhs().accept_gen(self, None)?;
         let t_rhs = expr.get_rhs().accept_gen(self, None)?;
         Self::process_binop_arith(&t_lhs)?;
         Self::process_binop_arith(&t_rhs)?;
         match op {
-            Binop::Add      => self.process_binop_match(&sym, op, &t_lhs, &t_rhs),
-            Binop::Sub      => self.process_binop_match(&sym, op, &t_lhs, &t_rhs),
-            Binop::Mul      => self.process_binop_match(&sym, op, &t_lhs, &t_rhs),
-            Binop::MatMul   => self.process_binop_match_mat_mul(&sym, op, &t_lhs, &t_rhs),
+            Binop::Add      => self.process_binop_match(expr, &sym, op, &t_lhs, &t_rhs),
+            Binop::Sub      => self.process_binop_match(expr, &sym, op, &t_lhs, &t_rhs),
+            Binop::Mul      => self.process_binop_match(expr, &sym, op, &t_lhs, &t_rhs),
+            Binop::MatMul   => self.process_binop_match_mat_mul(expr, &sym, op, &t_lhs, &t_rhs),
             Binop::Div      => Err(format!("Binary op '{}' is unimplemented", op)), // TODO
         }
     }
@@ -101,7 +101,7 @@ impl <'a> TypeCheck<'a> {
         match t {
             Type::Scalar(_) => Ok(()),
             Type::Tensor(_) => Ok(()),
-            Type::Undef     => Err("Cannot compute binary operation on type 'undef'".to_string()),
+            Type::Undef     => Ok(()),
             Type::Unit      => Err("Cannot compute binary operation on type '()'".to_string()),
             Type::Sig(_)    => Err("Cannot compute binary operation on type 'fn(_)'".to_string()),
         }
@@ -109,23 +109,40 @@ impl <'a> TypeCheck<'a> {
 
     fn process_binop_match(
         &mut self,
+        expr: &BinopExpr,
         sym: &Symbol,
         op: Binop,
         t_lhs: &Type,
         t_rhs: &Type,
     ) -> GenResult<Type> {
         assert!(op != Binop::MatMul);
-        let t_proto = Type::new_signature(TypeSignature::new_prototype(
-            vec![t_lhs.clone(), t_rhs.clone()])
-        );
         if t_lhs == t_rhs {
-            // Element-wise operations for matching types
+            let t_proto = Type::new_signature(TypeSignature::new_prototype(
+                vec![t_lhs.clone(), t_rhs.clone()])
+            );
             let t = t_lhs.clone();
             self.specialize_function(sym, &t_proto, &t, false)?;
             self.emit_message(format!("Is type '{}'", t));
             Ok(t)
-        } else if op == Binop::Mul && t_lhs.is_scalar() {
+        } else if t_lhs.is_underspecified() && !t_rhs.is_underspecified() {
+            let t_proto = Type::new_signature(TypeSignature::new_prototype(
+                vec![t_rhs.clone(), t_rhs.clone()])
+            );
             let t = t_rhs.clone();
+            let sym_lhs = expr.get_lhs().get_symbol().unwrap();
+            self.emit_message(format!("Inferring type for '{}' to '{}'", sym_lhs, t));
+            self.state.get_type_map_mut().add_type(&sym_lhs, &t)?;
+            self.specialize_function(sym, &t_proto, &t, false)?;
+            self.emit_message(format!("Is type '{}'", t));
+            Ok(t)
+        } else if !t_lhs.is_underspecified() && t_rhs.is_underspecified() {
+            let t_proto = Type::new_signature(TypeSignature::new_prototype(
+                vec![t_lhs.clone(), t_lhs.clone()])
+            );
+            let t = t_lhs.clone();
+            let sym_rhs = expr.get_rhs().get_symbol().unwrap();
+            self.emit_message(format!("Inferring type for '{}' to '{}'", sym_rhs, t));
+            self.state.get_type_map_mut().add_type(&sym_rhs, &t)?;
             self.specialize_function(sym, &t_proto, &t, false)?;
             self.emit_message(format!("Is type '{}'", t));
             Ok(t)
@@ -138,26 +155,55 @@ impl <'a> TypeCheck<'a> {
 
     fn process_binop_match_mat_mul(
         &mut self,
+        expr: &BinopExpr,
         sym: &Symbol,
         op: Binop,
         t_lhs: &Type,
         t_rhs: &Type,
     ) -> GenResult<Type> {
         assert!(op == Binop::MatMul);
-        let t_proto = Type::new_signature(TypeSignature::new_prototype(
-            vec![t_lhs.clone(), t_rhs.clone()]
-        ));
-        let t = if t_lhs.is_underspecified() || t_rhs.is_underspecified() {
-            Type::new_tensor(match t_lhs.get_type() {
-                Some(t) => TypeTensor::new_unranked(t),
-                None    => match t_rhs.get_type() {
-                    Some(t) => TypeTensor::new_unranked(t),
-                    None    => TypeTensor::new_unranked(TypeBase::F64),
+        let (t_lhs, t_rhs, t) = if t_lhs.is_undef() && t_rhs.is_undef() {
+            (t_lhs.clone(), t_rhs.clone(), Type::default())
+        } else if t_lhs.is_underspecified() && t_rhs.is_underspecified() {
+            let t = match t_lhs.get_type() {
+                Some(t) => {
+                    let tt = Type::new_tensor(TypeTensor::new_unranked(t));
+                    let sym_rhs = expr.get_rhs().get_symbol().unwrap();
+                    self.state.get_type_map_mut().add_type(&sym_rhs, &tt)?;
+                    self.emit_message(format!("Inferring type for '{}' to '{}'", sym_rhs, tt));
+                    tt
                 },
-            })
+                None    => match t_rhs.get_type() {
+                    Some(t) => {
+                        let tt = Type::new_tensor(TypeTensor::new_unranked(t));
+                        let sym_lhs = expr.get_lhs().get_symbol().unwrap();
+                        self.state.get_type_map_mut().add_type(&sym_lhs, &tt)?;
+                        self.emit_message(format!("Inferring type for '{}' to '{}'", sym_lhs, tt));
+                        tt
+                    },
+                    None    => Type::new_tensor(TypeTensor::new_unranked(TypeBase::F64)), // Default to F64
+                },
+            };
+            (t_lhs.clone(), t_rhs.clone(), t)
+        } else if t_lhs.is_underspecified() {
+            let t_lhs = t_rhs.transpose().unwrap();
+            let sym_lhs = expr.get_lhs().get_symbol().unwrap();
+            self.state.get_type_map_mut().add_type(&sym_lhs, &t_lhs)?;
+            self.emit_message(format!("Inferring type for '{}' to '{}'", sym_lhs, t_lhs));
+            let t = Type::mat_mul(&t_lhs, t_rhs);
+            (t_lhs.clone(), t_rhs.clone(), t)
+        } else if t_rhs.is_underspecified() {
+            let t_rhs = t_lhs.transpose().unwrap();
+            let sym_rhs = expr.get_rhs().get_symbol().unwrap();
+            self.state.get_type_map_mut().add_type(&sym_rhs, &t_rhs)?;
+            self.emit_message(format!("Inferring type for '{}' to '{}'", sym_rhs, t_rhs));
+            let t = Type::mat_mul(t_lhs, &t_rhs);
+            (t_lhs.clone(), t_rhs.clone(), t)
         } else {
-            Type::mat_mul(t_lhs, t_rhs)
+            let t = Type::mat_mul(t_lhs, t_rhs);
+            (t_lhs.clone(), t_rhs.clone(), t)
         };
+        let t_proto = Type::new_signature(TypeSignature::new_prototype(vec![t_lhs, t_rhs]));
         self.specialize_function(sym, &t_proto, &t, false)?;
         self.emit_message(format!("Is type '{}'", t));
         Ok(t)
@@ -171,8 +217,8 @@ impl <'a> TypeCheck<'a> {
     ///     return transpose(a) * transpose(b)
     /// }
     /// ```
-    /// Here `a` and `b` can only be inferred to be unranked tensors (e.g., <*xf64>). The
-    /// specialization of `multiply_transpose(_)` (and thus the types of `a` and `b`) will be
+    /// Here `a` and `b` can only be inferred to be undef.
+    /// The specialization of `multiply_transpose(_)` (and thus the types of `a` and `b`) will be
     /// determined at a later point where there is a call to `multiply_transpose(_)`.
     /// This is done by caching the AST upon first discovery of a function defintion, and then
     /// repeating the processing with a parameter iterator containing the types for the values
@@ -183,7 +229,7 @@ impl <'a> TypeCheck<'a> {
         _acc: Option<&mut ParamIter>,
     ) -> GenResult<Type> {
         let expr: &CallExpr = ast.as_impl().get_kind().to_call().unwrap();
-        self.emit_message(format!("Processing Call '{}' {}", expr.get_callee(), ast.get_loc()));
+        self.emit_message(format!("Processing Call '{}' {}", expr.get_callee(), ast.get_location()));
         let sym = expr.get_symbol();
         let ast_cached = self.state.get_ast_from_cache(&sym);
         if ast_cached.is_some() {
@@ -239,7 +285,7 @@ impl <'a> TypeCheck<'a> {
     ) -> GenResult<Type> {
         let expr: &FunctionExpr = ast.as_impl().get_kind().to_function().unwrap();
         let sym = expr.get_symbol();
-        self.emit_message(format!("Processing Function '{}' {}", expr.get_name(), ast.get_loc()));
+        self.emit_message(format!("Processing Function '{}' {}", expr.get_name(), ast.get_location()));
         let t_params: Type = expr.get_prototype().accept_gen(self, acc)?;
         self.state.push_function(&t_params);
         let mut found_terminator = false;
@@ -249,13 +295,23 @@ impl <'a> TypeCheck<'a> {
                 found_terminator = true;
             }
         }
-        if found_terminator {
-            let t_ret = self.state.pop_terminator().unwrap();
-            self.specialize_function(&sym, &t_params, &t_ret, true)
+        let t_ret = if found_terminator {
+            self.state.pop_terminator().unwrap()
         } else {
             self.emit_message("Found no terminators".to_string());
-            self.specialize_function(&sym, &t_params, &Type::new_unit(), true)
-        }
+            Type::new_unit()
+        };
+        let t_params: Type = if t_params.is_underspecified() {
+            // Retry prototype generation with type inference if originally underspecified
+            self.state.pop_function();
+            let mut param_iter = ParamIter::from_prototype(expr.get_prototype(), self.state.get_type_map());
+            let t_params = expr.get_prototype().accept_gen(self, Some(&mut param_iter))?;
+            self.state.push_function(&t_params);
+            t_params
+        } else {
+            t_params
+        };
+        self.specialize_function(&sym, &t_params, &t_ret, true)
     }
 
     fn process_literal(
@@ -264,7 +320,7 @@ impl <'a> TypeCheck<'a> {
         _acc: Option<&mut ParamIter>,
     ) -> GenResult<Type> {
         let expr: &LiteralExpr = ast.as_impl().get_kind().to_literal().unwrap();
-        self.emit_message(format!("Processing Literal {}", ast.get_loc()));
+        self.emit_message(format!("Processing Literal {}", ast.get_location()));
         let shape = expr.get_shape();
         self.emit_message(format!("Asserting shape is '{}'", shape));
         let mut dims: Dims = Dims::new();
@@ -337,7 +393,7 @@ impl <'a> TypeCheck<'a> {
         _acc: Option<&mut ParamIter>,
     ) -> GenResult<Type> {
         let expr: &NumberExpr = ast.as_impl().get_kind().to_number().unwrap();
-        self.emit_message(format!("Processing Number '{}' {}", expr.get_value(), ast.get_loc()));
+        self.emit_message(format!("Processing Number '{}' {}", expr.get_value(), ast.get_location()));
         let t: Type = Type::new_scalar(TypeBase::new_f64());
         self.emit_message(format!("Is type '{}'", t));
         Ok(t)
@@ -352,14 +408,14 @@ impl <'a> TypeCheck<'a> {
         assert!(expr.is_param());
         let sym = expr.get_symbol();
         if acc.is_none() {
-            // Prototype is underspecified; default arguments to unranked tensors
-            self.emit_message(format!("Found parameter '{}' {}", sym, ast.get_loc()));
-            let t = Type::new_tensor(TypeTensor::new_unranked(TypeBase::F64));
+            // Prototype is underspecified; default arguments to undef
+            self.emit_message(format!("Found parameter '{}' {}", sym, ast.get_location()));
+            let t = Type::default();
             self.state.get_type_map_mut().add_type(&sym, &t)?;
             Ok(t)
         } else {
             let t = acc.unwrap().next().unwrap();
-            self.emit_message(format!("Found parameter '{}' with type '{}' {}", sym, t, ast.get_loc()));
+            self.emit_message(format!("Found parameter '{}' with type '{}' {}", sym, t, ast.get_location()));
             self.state.get_type_map_mut().add_type(&sym, &t)?;
             Ok(*t)
         }
@@ -371,7 +427,7 @@ impl <'a> TypeCheck<'a> {
         _acc: Option<&mut ParamIter>,
     ) -> GenResult<Type> {
         let expr: &PrintExpr = ast.as_impl().get_kind().to_print().unwrap();
-        self.emit_message(format!("Processing Print {}", ast.get_loc()));
+        self.emit_message(format!("Processing Print {}", ast.get_location()));
         let sym = expr.get_symbol();
         let t = expr.get_value().accept_gen(self, None)?;
         let t_ret = Type::new_unit();
@@ -417,7 +473,7 @@ impl <'a> TypeCheck<'a> {
         _acc: Option<&mut ParamIter>,
     ) -> GenResult<Type> {
         let expr: &ReturnExpr = ast.as_impl().get_kind().to_return().unwrap();
-        self.emit_message(format!("Processing Return {}", ast.get_loc()));
+        self.emit_message(format!("Processing Return {}", ast.get_location()));
         let t = if expr.is_empty() {
             Type::new_unit()
         } else {
@@ -434,15 +490,12 @@ impl <'a> TypeCheck<'a> {
         _acc: Option<&mut ParamIter>,
     ) -> GenResult<Type> {
         let expr: &TransposeExpr = ast.as_impl().get_kind().to_transpose().unwrap();
-        self.emit_message(format!("Processing Transpose {}", ast.get_loc()));
+        self.emit_message(format!("Processing Transpose {}", ast.get_location()));
         let sym = expr.get_symbol();
         let t = expr.get_value().accept_gen(self, None)?;
         let t_ret = match t.transpose() {
             Some(tt)    => tt,
-            None        => {
-                eprintln!("Cannot take transpose of expression {}", expr.get_value().get_loc());
-                exit(ExitCode::SemanticError);
-            },
+            None        => Type::default(),
         };
         let t_proto = Type::new_signature(TypeSignature::new_prototype(vec![t]));
         self.specialize_function(&sym, &t_proto, &t_ret, false)?;
@@ -460,7 +513,7 @@ impl <'a> TypeCheck<'a> {
             return self.process_param(ast, acc);
         }
         let sym = expr.get_symbol();
-        self.emit_message(format!("Processing Var '{}' {}", sym, ast.get_loc()));
+        self.emit_message(format!("Processing Var '{}' {}", sym, ast.get_location()));
         let type_map = self.state.get_type_map();
         if type_map.contains_symbol(&sym) {
             let t = type_map.get_latest_type(&sym)?;
@@ -468,7 +521,7 @@ impl <'a> TypeCheck<'a> {
             Ok(t)
         } else {
             self.emit_message(format!("Found no type for '{}'", sym));
-            Ok(Type::new_tensor(TypeTensor::new_unranked(TypeBase::F64)))
+            Ok(Type::default())
         }
     }
 
@@ -479,7 +532,7 @@ impl <'a> TypeCheck<'a> {
     ) -> GenResult<Type> {
         let expr: &VarDeclExpr = ast.as_impl().get_kind().to_var_decl().unwrap();
         let sym = expr.get_symbol();
-        self.emit_message(format!("Processing VarDecl '{}' {}", sym, ast.get_loc()));
+        self.emit_message(format!("Processing VarDecl '{}' {}", sym, ast.get_location()));
         self.emit_message(format!("Inferring type for '{}'", sym));
         let t = if expr.is_shapeless() || expr.get_shape().is_empty() {
             expr.get_value().accept_gen(self, None)?
@@ -611,6 +664,15 @@ impl ParamIter {
         ParamIter{param: Box::new(Type::default()), params: params.clone(), index: Default::default()}
     }
 
+    pub fn from_prototype(proto: &SharedValue, type_map: &TypeMap) -> Self {
+        let expr = proto.get_kind().to_prototype().unwrap();
+        let params: Vec<Type> = expr.get_args()
+            .iter()
+            .map(|a| type_map.get_latest_type(&a.get_symbol().unwrap()).unwrap_or(Type::default()))
+            .collect();
+        Self::new(&params)
+    }
+
     pub fn get(&self, index: usize) -> &Type {
         match self.params.get(index) {
             Some(t) => t,
@@ -655,7 +717,7 @@ impl TypeMap {
                 Type::Sig(ts)   => {
                     let match_score_ts = ts.match_params(params);
                     // Take the earliest best match
-                    // This should take underspecied signatures over wrong signatures
+                    // This should take underspecified signatures over wrong signatures
                     if match_score_ts > match_score {
                         t_match = t.clone();
                         match_score = match_score_ts;
@@ -725,7 +787,7 @@ impl <'a> AstGenerator<Expr, Option<&mut ParamIter>, Type> for TypeCheck<'a> {
             ExprKindID::Var         => self.process_var(ast, acc),
             ExprKindID::VarDecl     => self.process_var_decl(ast, acc),
             ExprKindID::Unset       => {
-                eprintln!("Unexpected AST of kind Unset {}", ast.get_loc());
+                eprintln!("Unexpected AST of kind Unset {}", ast.get_location());
                 exit(ExitCode::SemanticError);
             },
         }

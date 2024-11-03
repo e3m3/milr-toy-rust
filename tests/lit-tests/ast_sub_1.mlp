@@ -1,0 +1,44 @@
+// RUN: @mlpc --ast --parse %s 2>&1 | @filecheck %s
+
+def test() {
+    var a<3,2> = [[1, 2], [3, 4], [5, 6]];
+    var b<3,2> = [[4, 1], [3, 4], [6, 5]];
+
+    // Result returned is of shape <3,2>
+    return a - b;
+}
+
+// CHECK: AST:
+// CHECK: Module '[[SRC_PATH]]':
+// CHECK: Proto 'test' @[[SRC_PATH]]:3:5
+// CHECK:   Params: []
+// CHECK:   Block {
+// CHECK:     VarDecl: a<3,2> @[[SRC_PATH]]:4:5
+// CHECK:       Literal: <3,2>[ @[[SRC_PATH]]:4:18
+// CHECK:         Literal: <2>[ @[[SRC_PATH]]:4:19
+// CHECK:           1, 2
+// CHECK:         ] // Literal
+// CHECK:         Literal: <2>[ @[[SRC_PATH]]:4:27
+// CHECK:           3, 4
+// CHECK:         ] // Literal
+// CHECK:         Literal: <2>[ @[[SRC_PATH]]:4:35
+// CHECK:           5, 6
+// CHECK:         ] // Literal
+// CHECK:       ] // Literal
+// CHECK:     VarDecl: b<3,2> @[[SRC_PATH]]:5:5
+// CHECK:       Literal: <3,2>[ @[[SRC_PATH]]:5:18
+// CHECK:         Literal: <2>[ @[[SRC_PATH]]:5:19
+// CHECK:           4, 1
+// CHECK:         ] // Literal
+// CHECK:         Literal: <2>[ @[[SRC_PATH]]:5:27
+// CHECK:           3, 4
+// CHECK:         ] // Literal
+// CHECK:         Literal: <2>[ @[[SRC_PATH]]:5:35
+// CHECK:           6, 5
+// CHECK:         ] // Literal
+// CHECK:       ] // Literal
+// CHECK:     Return: @[[SRC_PATH]]:8:5
+// CHECK:       Binop: - @[[SRC_PATH]]:8:14
+// CHECK:         Var: a @[[SRC_PATH]]:8:12
+// CHECK:         Var: b @[[SRC_PATH]]:8:16
+// CHECK: } // Block

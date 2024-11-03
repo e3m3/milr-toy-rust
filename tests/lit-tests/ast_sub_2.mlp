@@ -1,0 +1,31 @@
+// RUN: @mlpc --ast --parse %s 2>&1 | @filecheck %s
+
+def test(input) {
+    var a<3,2> = [[1, 2], [3, 4], [5, 6]];
+
+    // Result returned is of shape <3,2>
+    return a - input;
+}
+
+// CHECK: AST:
+// CHECK: Module '[[SRC_PATH]]':
+// CHECK: Proto 'test' @[[SRC_PATH]]:3:5
+// CHECK:   Params: [input]
+// CHECK:   Block {
+// CHECK:     VarDecl: a<3,2> @[[SRC_PATH]]:4:5
+// CHECK:       Literal: <3,2>[ @[[SRC_PATH]]:4:18
+// CHECK:         Literal: <2>[ @[[SRC_PATH]]:4:19
+// CHECK:           1, 2
+// CHECK:         ] // Literal
+// CHECK:         Literal: <2>[ @[[SRC_PATH]]:4:27
+// CHECK:           3, 4
+// CHECK:         ] // Literal
+// CHECK:         Literal: <2>[ @[[SRC_PATH]]:4:35
+// CHECK:           5, 6
+// CHECK:         ] // Literal
+// CHECK:       ] // Literal
+// CHECK:     Return: @[[SRC_PATH]]:7:5
+// CHECK:       Binop: - @[[SRC_PATH]]:7:14
+// CHECK:         Var: a @[[SRC_PATH]]:7:12
+// CHECK:         Var: input @[[SRC_PATH]]:7:16
+// CHECK: } // Block

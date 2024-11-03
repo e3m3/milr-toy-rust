@@ -1,0 +1,39 @@
+// RUN: @mlpc --verbose=sem --sem %s 2>&1 | @filecheck %s
+
+def test(input) {
+    var a = 2.0 + input;
+    print(a);
+}
+
+// CHECK: Running DeclCheck on module '[[SRC_PATH]]'
+// CHECK: Added symbol 'input' to scope
+// CHECK: Found symbol 'input' in scope
+// CHECK: Added symbol 'a' to scope
+// CHECK: Found symbol 'print(_)' in scope
+// CHECK: Found symbol 'a' in scope
+// CHECK: Removed symbol 'input' from scope
+// CHECK: Removed symbol 'a' from scope
+// CHECK: Added symbol 'test(_)' to scope
+// CHECK: Removed symbol 'test(_)' from scope
+
+// CHECK: Running TypeCheck on module '[[SRC_PATH]]'
+// CHECK: Processing Function 'test' @[[SRC_PATH]]:3:5
+// CHECK: Found parameter 'input' @[[SRC_PATH]]:3:10
+// CHECK: Processing VarDecl 'a' @[[SRC_PATH]]:4:5
+// CHECK: Inferring type for 'a'
+// CHECK: Processing Binop '+' @[[SRC_PATH]]:4:17
+// CHECK: Processing Number '2' @[[SRC_PATH]]:4:13
+// CHECK: Is type 'f64'
+// CHECK: Processing Var 'input' @[[SRC_PATH]]:4:19
+// CHECK: Is type 'undef'
+// CHECK: Inferring type for 'input' to 'f64'
+// CHECK: Adding specialization to 'add(_)' for 'fn(f64, f64 -> f64)'
+// CHECK: Is type 'f64'
+// CHECK: Setting type for 'a' to 'f64'
+// CHECK: Processing Print @[[SRC_PATH]]:5:5
+// CHECK: Processing Var 'a' @[[SRC_PATH]]:5:11
+// CHECK: Is type 'f64'
+// CHECK: Adding specialization to 'print(_)' for 'fn(f64 -> ())'
+// CHECK: Found no terminators
+// CHECK: Adding specialization to 'test(_)' for 'fn(f64 -> ())'
+// CHECK: Adding symbol 'test(_)' to AST cache

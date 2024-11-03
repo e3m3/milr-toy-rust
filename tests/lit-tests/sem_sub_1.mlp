@@ -1,0 +1,100 @@
+// RUN: @mlpc --verbose=sem --sem %s 2>&1 | @filecheck %s
+
+def test() {
+    var a<3,2> = [[1, 2], [3, 4], [5, 6]];
+    var b<3,2> = [[4, 1], [3, 4], [6, 5]];
+
+    // Result returned is of shape <3,2>
+    return a - b;
+}
+
+// CHECK: Running DeclCheck on module '[[SRC_PATH]]'
+// CHECK: Added symbol 'a' to scope
+// CHECK: Added symbol 'b' to scope
+// CHECK: Found symbol 'sub(_)' in scope
+// CHECK: Found symbol 'a' in scope
+// CHECK: Found symbol 'b' in scope
+// CHECK: Removed symbol 'a' from scope
+// CHECK: Removed symbol 'b' from scope
+// CHECK: Added symbol 'test(_)' to scope
+// CHECK: Removed symbol 'test(_)' from scope
+
+// CHECK: Running TypeCheck on module '[[SRC_PATH]]'
+// CHECK: Processing Function 'test' @[[SRC_PATH]]:3:5
+// CHECK: Processing VarDecl 'a' @[[SRC_PATH]]:4:5
+// CHECK: Inferring type for 'a'
+// CHECK: Asserting shape is '<3,2>'
+// CHECK: Processing Literal @[[SRC_PATH]]:4:18
+// CHECK: Asserting shape is '<3,2>'
+// CHECK: Processing Literal @[[SRC_PATH]]:4:19
+// CHECK: Asserting shape is '<2>'
+// CHECK: Processing Number '1' @[[SRC_PATH]]:4:20
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '2' @[[SRC_PATH]]:4:23
+// CHECK: Is type 'f64'
+// CHECK: Shape '<2>' for literal is correct
+// CHECK: Is type '<2xf64>'
+// CHECK: Processing Literal @[[SRC_PATH]]:4:27
+// CHECK: Asserting shape is '<2>'
+// CHECK: Processing Number '3' @[[SRC_PATH]]:4:28
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '4' @[[SRC_PATH]]:4:31
+// CHECK: Is type 'f64'
+// CHECK: Shape '<2>' for literal is correct
+// CHECK: Is type '<2xf64>'
+// CHECK: Processing Literal @[[SRC_PATH]]:4:35
+// CHECK: Asserting shape is '<2>'
+// CHECK: Processing Number '5' @[[SRC_PATH]]:4:36
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '6' @[[SRC_PATH]]:4:39
+// CHECK: Is type 'f64'
+// CHECK: Shape '<2>' for literal is correct
+// CHECK: Is type '<2xf64>'
+// CHECK: Shape '<3,2>' for literal is correct
+// CHECK: Is type '<3x2xf64>'
+// CHECK: Shape '<3,2>' for 'a' is correct
+// CHECK: Setting type for 'a' to '<3x2xf64>'
+// CHECK: Processing VarDecl 'b' @[[SRC_PATH]]:5:5
+// CHECK: Inferring type for 'b'
+// CHECK: Asserting shape is '<3,2>'
+// CHECK: Processing Literal @[[SRC_PATH]]:5:18
+// CHECK: Asserting shape is '<3,2>'
+// CHECK: Processing Literal @[[SRC_PATH]]:5:19
+// CHECK: Asserting shape is '<2>'
+// CHECK: Processing Number '4' @[[SRC_PATH]]:5:20
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '1' @[[SRC_PATH]]:5:23
+// CHECK: Is type 'f64'
+// CHECK: Shape '<2>' for literal is correct
+// CHECK: Is type '<2xf64>'
+// CHECK: Processing Literal @[[SRC_PATH]]:5:27
+// CHECK: Asserting shape is '<2>'
+// CHECK: Processing Number '3' @[[SRC_PATH]]:5:28
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '4' @[[SRC_PATH]]:5:31
+// CHECK: Is type 'f64'
+// CHECK: Shape '<2>' for literal is correct
+// CHECK: Is type '<2xf64>'
+// CHECK: Processing Literal @[[SRC_PATH]]:5:35
+// CHECK: Asserting shape is '<2>'
+// CHECK: Processing Number '6' @[[SRC_PATH]]:5:36
+// CHECK: Is type 'f64'
+// CHECK: Processing Number '5' @[[SRC_PATH]]:5:39
+// CHECK: Is type 'f64'
+// CHECK: Shape '<2>' for literal is correct
+// CHECK: Is type '<2xf64>'
+// CHECK: Shape '<3,2>' for literal is correct
+// CHECK: Is type '<3x2xf64>'
+// CHECK: Shape '<3,2>' for 'b' is correct
+// CHECK: Setting type for 'b' to '<3x2xf64>'
+// CHECK: Processing Return @[[SRC_PATH]]:8:5
+// CHECK: Processing Binop '-' @[[SRC_PATH]]:8:14
+// CHECK: Processing Var 'a' @[[SRC_PATH]]:8:12
+// CHECK: Is type '<3x2xf64>'
+// CHECK: Processing Var 'b' @[[SRC_PATH]]:8:16
+// CHECK: Is type '<3x2xf64>'
+// CHECK: Adding specialization to 'sub(_)' for 'fn(<3x2xf64>, <3x2xf64> -> <3x2xf64>)'
+// CHECK: Is type '<3x2xf64>'
+// CHECK: Return type is '<3x2xf64>'
+// CHECK: Adding specialization to 'test(_)' for 'fn(() -> <3x2xf64>)'
+// CHECK: Adding symbol 'test(_)' to AST cache

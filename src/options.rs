@@ -58,6 +58,12 @@ impl RunOptions {
     }
 }
 
+impl Default for RunOptions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl fmt::Display for RunOptions {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s_vec = vec![

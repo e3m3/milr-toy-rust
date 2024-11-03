@@ -3,14 +3,14 @@
 def test(input) {
     var a<3,2> = [[1, 2], [3, 4], [5, 6]];
 
-    // Result returned is of shape <3,3>
-    return a .* input;
+    // Result returned is of shape <3,2>
+    return a - input;
 }
 
 // CHECK: Running DeclCheck on module '[[SRC_PATH]]'
 // CHECK: Added symbol 'input' to scope
 // CHECK: Added symbol 'a' to scope
-// CHECK: Found symbol 'matmul(_)' in scope
+// CHECK: Found symbol 'sub(_)' in scope
 // CHECK: Found symbol 'a' in scope
 // CHECK: Found symbol 'input' in scope
 // CHECK: Removed symbol 'input' from scope
@@ -55,14 +55,14 @@ def test(input) {
 // CHECK: Shape '<3,2>' for 'a' is correct
 // CHECK: Setting type for 'a' to '<3x2xf64>'
 // CHECK: Processing Return @[[SRC_PATH]]:7:5
-// CHECK: Processing Binop '.*' @[[SRC_PATH]]:7:14
+// CHECK: Processing Binop '-' @[[SRC_PATH]]:7:14
 // CHECK: Processing Var 'a' @[[SRC_PATH]]:7:12
 // CHECK: Is type '<3x2xf64>'
-// CHECK: Processing Var 'input' @[[SRC_PATH]]:7:17
+// CHECK: Processing Var 'input' @[[SRC_PATH]]:7:16
 // CHECK: Is type 'undef'
-// CHECK: Inferring type for 'input' to '<2x3xf64>'
-// CHECK: Adding specialization to 'matmul(_)' for 'fn(<3x2xf64>, <2x3xf64> -> <3x3xf64>)'
-// CHECK: Is type '<3x3xf64>'
-// CHECK: Return type is '<3x3xf64>'
-// CHECK: Adding specialization to 'test(_)' for 'fn(<2x3xf64> -> <3x3xf64>)'
+// CHECK: Inferring type for 'input' to '<3x2xf64>'
+// CHECK: Adding specialization to 'sub(_)' for 'fn(<3x2xf64>, <3x2xf64> -> <3x2xf64>)'
+// CHECK: Is type '<3x2xf64>'
+// CHECK: Return type is '<3x2xf64>'
+// CHECK: Adding specialization to 'test(_)' for 'fn(<3x2xf64> -> <3x2xf64>)'
 // CHECK: Adding symbol 'test(_)' to AST cache

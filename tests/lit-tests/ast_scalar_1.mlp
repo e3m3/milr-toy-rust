@@ -1,0 +1,17 @@
+// RUN: @mlpc --ast --parse %s 2>&1 | @filecheck %s
+
+def test() {
+    var a = 2.0;
+    print(a);
+}
+
+// CHECK: AST:
+// CHECK: Module '[[SRC_PATH]]':
+// CHECK: Proto 'test' @[[SRC_PATH]]:3:5
+// CHECK:   Params: []
+// CHECK:   Block {
+// CHECK:     VarDecl: a<> @[[SRC_PATH]]:4:5
+// CHECK:       2
+// CHECK:     Print: @[[SRC_PATH]]:5:5
+// CHECK:       Var: a @[[SRC_PATH]]:5:11
+// CHECK:   } // Block

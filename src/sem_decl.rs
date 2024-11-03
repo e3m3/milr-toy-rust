@@ -118,7 +118,7 @@ impl <'a> DeclCheck<'a> {
         let expr: &CallExpr = ast.as_impl().get_kind().to_call().unwrap();
         let sym = ast.get_symbol().unwrap();
         if !self.scope.contains_symbol(&sym, self.options) {
-            eprintln!("Expected to find function '{}' in scope {}'", sym, ast.get_loc());
+            eprintln!("Expected to find function '{}' in scope {}'", sym, ast.get_location());
             return false;
         }
         for arg in expr.get_args().iter() {
@@ -161,7 +161,7 @@ impl <'a> DeclCheck<'a> {
         }
         let sym = proto.get_symbol().unwrap();
         if !self.scope.add_symbol(&sym, self.options) {
-            eprintln!("Redeclaration of function '{}' {}", expr.get_name(), ast.get_loc());
+            eprintln!("Redeclaration of function '{}' {}", expr.get_name(), ast.get_location());
             false
         } else {
             true
@@ -183,7 +183,7 @@ impl <'a> DeclCheck<'a> {
             let sym = function.get_symbol().unwrap();
             if self.scope.contains_symbol(&sym, self.options) {
                 let name = function.get_kind().to_function().unwrap().get_name();
-                eprintln!("Redeclaration of function '{}' {}", name, function.get_loc());
+                eprintln!("Redeclaration of function '{}' {}", name, function.get_location());
                 return false;
             } else {
                 added.push(sym);
@@ -211,7 +211,7 @@ impl <'a> DeclCheck<'a> {
         let expr: &PrintExpr = ast.as_impl().get_kind().to_print().unwrap();
         let sym = ast.get_symbol().unwrap();
         if !self.scope.contains_symbol(&sym, self.options) {
-            eprintln!("Expected to find symbol '{}' in scope {}", sym, ast.get_loc());
+            eprintln!("Expected to find symbol '{}' in scope {}", sym, ast.get_location());
             return false;
         }
         expr.get_value().accept_visit(self)
@@ -224,13 +224,13 @@ impl <'a> DeclCheck<'a> {
             let sym = arg.get_symbol().unwrap();
             if self.scope.contains_symbol(&sym, self.options) {
                 let name = arg.get_kind().to_var().unwrap().get_name();
-                eprintln!("Redeclaration of symbol '{}' {}", name, arg.get_loc());
+                eprintln!("Redeclaration of symbol '{}' {}", name, arg.get_location());
                 return false;
             }
         }
         let sym = ast.get_symbol().unwrap();
         if self.scope.contains_symbol(&sym, self.options) {
-            eprintln!("Redeclaration of function '{}' {}", expr.get_name(), ast.get_loc());
+            eprintln!("Redeclaration of function '{}' {}", expr.get_name(), ast.get_location());
             return false;
         }
         true
@@ -248,7 +248,7 @@ impl <'a> DeclCheck<'a> {
         let expr: &TransposeExpr = ast.as_impl().get_kind().to_transpose().unwrap();
         let sym = ast.get_symbol().unwrap();
         if !self.scope.contains_symbol(&sym, self.options) {
-            eprintln!("Expected to find symbol '{}' in scope {}", sym, ast.get_loc());
+            eprintln!("Expected to find symbol '{}' in scope {}", sym, ast.get_location());
             return false;
         }
         expr.get_value().accept_visit(self)
@@ -258,7 +258,7 @@ impl <'a> DeclCheck<'a> {
         let _expr: &VarExpr = ast.as_impl().get_kind().to_var().unwrap();
         let sym = ast.get_symbol().unwrap();
         if !self.scope.contains_symbol(&sym, self.options) {
-            eprintln!("Expected to find symbol '{}' in scope {}", sym, ast.get_loc());
+            eprintln!("Expected to find symbol '{}' in scope {}", sym, ast.get_location());
             false
         } else {
             true
@@ -272,7 +272,7 @@ impl <'a> DeclCheck<'a> {
         }
         let sym = ast.get_symbol().unwrap();
         if !self.scope.add_symbol(&sym, self.options) {
-            eprintln!("Redeclaration of symbol '{}' {}", expr.get_name(), ast.get_loc());
+            eprintln!("Redeclaration of symbol '{}' {}", expr.get_name(), ast.get_location());
             false
         } else {
             true
@@ -296,7 +296,7 @@ impl <'a> AstVisitor<Expr> for DeclCheck<'a> {
             ExprKindID::Var         => self.check_var(ast),
             ExprKindID::VarDecl     => self.check_var_decl(ast),
             ExprKindID::Unset       => {
-                eprintln!("Unexpected AST of kind Unset {}", ast.get_loc());
+                eprintln!("Unexpected AST of kind Unset {}", ast.get_location());
                 exit(ExitCode::SemanticError);
             },
         }
