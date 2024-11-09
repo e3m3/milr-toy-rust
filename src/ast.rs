@@ -40,6 +40,11 @@ pub trait Ast<T>: fmt::Display {
     fn get_symbol(&self) -> Option<Symbol>;
 }
 
+pub trait AstBuiltin {
+    fn as_symbol(&self) -> Symbol;
+    fn get_name(&self) -> &'static str;
+}
+
 pub trait AstGenerator<T, U, V> {
     fn gen(&mut self, ast: &dyn Ast<T>, acc: U) -> GenResult<V>;
 }
@@ -47,6 +52,9 @@ pub trait AstGenerator<T, U, V> {
 pub trait AstVisitor<T> {
     fn visit(&mut self, ast: &dyn Ast<T>) -> bool;
 }
+
+#[derive(Clone,Copy,PartialEq)]
+pub struct BuiltinFunction(&'static str);
 
 /// Interface for checking if any component of a type has not been completely resolved
 /// through type inference.
@@ -56,16 +64,23 @@ pub trait CheckUnderspecified {
     fn is_underspecified(&self) -> bool;
 }
 
+pub trait Mangle {
+    fn mangle(&self, s: &str) -> String;
+}
+
 pub type Dims = Vec<TDim>;
 
 pub type GenResult<T> = Result<T, String>;
 
-#[derive(Clone,Default)]
+#[derive(Clone,Default,Eq,Hash,PartialEq)]
 pub struct Location {
     file_name: String,
     line_no: usize,
     col_no: usize,
 }
+
+#[derive(Clone,Copy,PartialEq)]
+pub struct ReservedFunction(&'static str);
 
 #[derive(Clone,Default,PartialEq)]
 pub struct Shape(Dims);
@@ -94,7 +109,8 @@ pub enum TypeBase {
 #[derive(Clone,Default)]
 pub struct TypeMap {
     functions: HashSet<Symbol>,
-    map: MultiMap<Symbol, Type>,
+    locs: MultiMap<Location, Type>,
+    syms: MultiMap<Symbol, Type>,
 }
 
 #[derive(Clone,PartialEq)]
@@ -297,6 +313,76 @@ impl Ast<Expr> for Expr {
     }
 }
 
+impl BuiltinFunction {
+    const FUNCTIONS: [&'static str; 2] = [
+        "print", "transpose"
+    ];
+
+    pub fn new(s: &str) -> Self {
+        match Self::iter().find(|&s_| s_ == s) {
+            Some(s_)    => BuiltinFunction(s_),
+            None        => {
+                eprintln!("Cannot create builtin from '{}'", s);
+                exit(ExitCode::AstError);
+            }
+        }
+    }
+
+    pub fn collect() -> Vec<Self> {
+        Self::iter().map(|s| Self(s)).collect()
+    }
+
+    pub fn collect_boxed() -> Vec<Box<dyn AstBuiltin>> {
+        Self::iter().map(|s| Box::new(Self(s)) as Box<dyn AstBuiltin>).collect()
+    }
+
+    pub fn is_builtin(s: &str) -> bool {
+        Self::FUNCTIONS.contains(&s)
+    }
+
+    pub fn iter() -> impl Iterator<Item = &'static str> {
+        Self("")
+    }
+}
+
+impl AstBuiltin for BuiltinFunction {
+    fn as_symbol(&self) -> Symbol {
+        Symbol::new_function(self.get_name())
+    }
+
+    fn get_name(&self) -> &'static str {
+        self.0
+    }
+}
+
+impl fmt::Display for BuiltinFunction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.get_name())
+    }
+}
+
+impl Iterator for BuiltinFunction {
+    type Item = &'static str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.get_name().is_empty() {
+            self.0 = Self::FUNCTIONS[0];
+            Some(self.0)
+        } else {
+            match Self::FUNCTIONS.iter().position(|&s| s == self.get_name()) {
+                None    => None,
+                Some(i) => match Self::FUNCTIONS.get(i + 1) {
+                    None    => None,
+                    Some(s) => {
+                        self.0 = s;
+                        Some(self.0)
+                    },
+                },
+            }
+        }
+    }
+}
+
 impl CheckUnderspecified for Type {
     fn is_underspecified(&self) -> bool {
         match self {
@@ -346,6 +432,130 @@ impl Location {
 
     pub fn get_name(&self) -> &String {
         &self.file_name
+    }
+}
+
+impl Mangle for Type {
+    fn mangle(&self, s: &str) -> String {
+        match self {
+            Type::Undef     => format!("{}undef", s),
+            Type::Unit      => format!("{}unit", s),
+            Type::Scalar(t) => t.mangle(s),
+            Type::Sig(t)    => t.mangle(s),
+            Type::Tensor(t) => t.mangle(s),
+        }
+    }
+}
+
+impl Mangle for TypeBase {
+    fn mangle(&self, s: &str) -> String {
+        format!("{}{}", s, self)
+    }
+}
+
+impl Mangle for TypeSignature {
+    fn mangle(&self, s: &str) -> String {
+        let params = self.get_params().iter().fold(String::new(), |acc,t| t.mangle(&acc));
+        format!("{}__Fn_R{}_P{}", s, self.get_return().mangle(""), params)
+    }
+}
+
+impl Mangle for TypeTensor {
+    fn mangle(&self, s: &str) -> String {
+        let s_ = format!("{}T{}", s, self.get_type());
+        if self.is_unranked() {
+            format!("{}{}", s_, "u")
+        } else {
+            let mut s_dim = String::new();
+            let n = self.get_shape().get().len();
+            for (i, dim) in self.get_shape().get().iter().enumerate() {
+                dim.to_string().chars().for_each(|c| s_dim.push(c));
+                if i < n - 1 {
+                    s_dim.push('x');
+                }
+            }
+            format!("{}r{}", s_, s_dim)
+        }
+    }
+}
+
+impl ReservedFunction {
+    const FUNCTIONS: [&'static str; 5] = [
+        "add", "div", "matmul", "mul", "sub"
+    ];
+
+    pub fn new(s: &str) -> Self {
+        match Self::iter().find(|&s_| s_ == s) {
+            Some(s_)    => ReservedFunction(s_),
+            None        => {
+                eprintln!("Cannot create reserved function from '{}'", s);
+                exit(ExitCode::AstError);
+            }
+        }
+    }
+
+    pub fn from_binop(op: Binop) -> Self {
+        ReservedFunction(match op {
+            Binop::Add      => Self::FUNCTIONS[0],
+            Binop::Div      => Self::FUNCTIONS[1],
+            Binop::MatMul   => Self::FUNCTIONS[2],
+            Binop::Mul      => Self::FUNCTIONS[3],
+            Binop::Sub      => Self::FUNCTIONS[4],
+        })
+    }
+
+    pub fn collect() -> Vec<Self> {
+        Self::iter().map(|s| Self(s)).collect()
+    }
+
+    pub fn collect_boxed() -> Vec<Box<dyn AstBuiltin>> {
+        Self::iter().map(|s| Box::new(Self(s)) as Box<dyn AstBuiltin>).collect()
+    }
+
+    pub fn is_reserved(s: &str) -> bool {
+        Self::FUNCTIONS.contains(&s)
+    }
+
+    pub fn iter() -> impl Iterator<Item = &'static str> {
+        Self("")
+    }
+}
+
+impl AstBuiltin for ReservedFunction {
+    fn as_symbol(&self) -> Symbol {
+        Symbol::new_function(self.get_name())
+    }
+
+    fn get_name(&self) -> &'static str {
+        self.0
+    }
+}
+
+impl fmt::Display for ReservedFunction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.get_name())
+    }
+}
+
+impl Iterator for ReservedFunction {
+    type Item = &'static str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.get_name().is_empty() {
+            self.0 = Self::FUNCTIONS[0];
+            Some(self.0)
+        } else {
+            match Self::FUNCTIONS.iter().position(|&s| s == self.get_name()) {
+                None    => None,
+                Some(i) => match Self::FUNCTIONS.get(i + 1) {
+                    None    => None,
+                    Some(s) => {
+                        self.0 = s;
+                        Some(self.0)
+                    },
+                },
+            }
+        }
     }
 }
 
@@ -598,10 +808,10 @@ impl TypeBase {
 
 impl TypeMap {
     pub fn new() -> Self {
-        TypeMap{functions: Default::default(), map: Default::default()}
+        TypeMap{functions: Default::default(), locs: Default::default(), syms: Default::default()}
     }
 
-    pub fn add_type(&mut self, sym: &Symbol, t: &Type) -> Result<(), String> {
+    pub fn add_symbol_type(&mut self, sym: &Symbol, t: &Type) -> Result<(), String> {
         if !sym.is_internal() && t.is_signature() {
             if sym.is_function() {
                 self.functions.insert(sym.clone());
@@ -611,17 +821,26 @@ impl TypeMap {
                 ))?
             }
         }
-        self.map.insert(sym.clone(), t.clone());
+        self.syms.insert(sym.clone(), t.clone());
         Ok(())
     }
 
+    pub fn add_location_type(&mut self, loc: &Location, t: &Type) -> Result<(), String> {
+        self.locs.insert(loc.clone(), t.clone());
+        Ok(())
+    }
+
+    pub fn contains_location(&self, loc: &Location) -> bool {
+        self.locs.contains_key(loc) && !self.locs.get_vec(loc).unwrap().is_empty()
+    }
+
     pub fn contains_symbol(&self, sym: &Symbol) -> bool {
-        self.map.contains_key(sym) && !self.map.get_vec(sym).unwrap().is_empty()
+        self.syms.contains_key(sym) && !self.syms.get_vec(sym).unwrap().is_empty()
     }
 
     /// MultiMap preserves the insertion order for value types: Get the last in the list.
-    pub fn get_latest_type(&self, sym: &Symbol) -> Result<Type, String> {
-        match self.map.get_vec(sym) {
+    pub fn get_latest_symbol_type(&self, sym: &Symbol) -> Result<Type, String> {
+        match self.syms.get_vec(sym) {
             None    => Err(format!("Expected types defined for symbol '{}'", sym)),
             Some(v) => {
                 let n = v.len();
@@ -630,20 +849,31 @@ impl TypeMap {
         }
     }
 
-    pub fn get_types(&self, sym: &Symbol) -> Result<&Vec<Type>, String> {
-        match self.map.get_vec(sym) {
+    pub fn get_location_types(&self, loc: &Location) -> Result<&Vec<Type>, String> {
+        match self.locs.get_vec(loc) {
+            Some(v) => Ok(v),
+            None    => Err(format!("Expected types defined for location '{}'", loc)),
+        }
+    }
+
+    pub fn get_symbol_types(&self, sym: &Symbol) -> Result<&Vec<Type>, String> {
+        match self.syms.get_vec(sym) {
             Some(v) => Ok(v),
             None    => Err(format!("Expected types defined for symbol '{}'", sym)),
         }
     }
 
-    pub fn iter(&self) -> multimap::Iter<'_, Symbol, Type> {
-        self.map.iter()
+    pub fn iter_locations(&self) -> multimap::Iter<'_, Location, Type> {
+        self.locs.iter()
+    }
+
+    pub fn iter_symbols(&self) -> multimap::Iter<'_, Symbol, Type> {
+        self.syms.iter()
     }
 
     /// MultiMap preserves the insertion order for value types: Pop and return the last in the list.
-    pub fn pop_latest_type(&mut self, sym: &Symbol) -> Result<Option<Type>, String> {
-        match self.map.get_vec_mut(sym) {
+    pub fn pop_latest_symbol_type(&mut self, sym: &Symbol) -> Result<Option<Type>, String> {
+        match self.syms.get_vec_mut(sym) {
             None    => Err(format!("Expected types defined for symbol '{}'", sym)),
             Some(v) => Ok(v.pop()),
         }
@@ -784,18 +1014,16 @@ impl BinopExpr {
         BinopPrecedence::new(self.op)
     }
 
+    pub fn get_reserved(&self) -> ReservedFunction {
+        ReservedFunction::from_binop(self.op)
+    }
+
     pub fn get_rhs(&self) -> &SharedValue {
         &self.rhs
     }
 
     pub fn get_symbol(&self) -> Symbol {
-        Symbol::new_function(match self.get_op() {
-            Binop::Add      => "add",
-            Binop::Div      => "div",
-            Binop::MatMul   => "matmul",
-            Binop::Mul      => "mul",
-            Binop::Sub      => "sub",
-        })
+        Symbol::new_function(&self.get_reserved().to_string())
     }
 }
 
@@ -909,8 +1137,12 @@ impl PrintExpr {
         PrintExpr{value}
     }
 
+    pub fn get_builtin(&self) -> BuiltinFunction {
+        BuiltinFunction::new("print")
+    }
+
     pub fn get_symbol(&self) -> Symbol {
-        Symbol::new_function("print")
+        Symbol::new_function(&self.get_builtin().to_string())
     }
 
     pub fn get_value(&self) -> &SharedValue {
@@ -959,8 +1191,12 @@ impl TransposeExpr {
         TransposeExpr{value}
     }
 
+    pub fn get_builtin(&self) -> BuiltinFunction {
+        BuiltinFunction::new("transpose")
+    }
+
     pub fn get_symbol(&self) -> Symbol {
-        Symbol::new_function("transpose")
+        Symbol::new_function(&self.get_builtin().to_string())
     }
 
     pub fn get_value(&self) -> &SharedValue {

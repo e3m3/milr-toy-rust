@@ -16,6 +16,7 @@ use ast::ExprKind;
 use ast::ExprKindID;
 use ast::Expr;
 use ast::Location;
+use ast::ReservedFunction;
 use ast::SharedValue;
 use ast::SharedValues;
 use ast::Shape;
@@ -38,10 +39,6 @@ const BUILTINS: [TokenKind; 2] = [
 
 const BUILTINS_AND_IDENTS: [TokenKind; 3] = [
     TokenKind::Print, TokenKind::Transpose, TokenKind::Ident
-];
-
-const RESERVED_FUNCTIONS: [&str; 5] = [
-    "add", "div", "matmul", "mul", "sub"
 ];
 
 #[derive(Clone)]
@@ -542,7 +539,7 @@ impl <'a> Parser<'a> {
     }
 
     fn check_reserved(s: &str) -> () {
-        if RESERVED_FUNCTIONS.contains(&s) {
+        if ReservedFunction::is_reserved(&s) {
             Self::emit_error(format!("Reserved function name '{}'", s));
         }
     }
